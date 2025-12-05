@@ -1,135 +1,268 @@
-# life_matrix_perfect.py  —— 绝对不会再报错的生死矩阵终极版
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-from matplotlib.colors import LinearSegmentedColormap
-from matplotlib.patheffects import withStroke
+import pygame
+import sys
 import numpy as np
-from datetime import date, datetime
+from datetime import datetime, timedelta
 
-# ==================== 任务类 ====================
-class LifeTask:
-    def __init__(self, name, importance, base_urgency, deadline, note="", base_size=300):
-        self.name = name
-        self.importance = importance
-        self.base_urgency = base_urgency      # 初始紧急度
-        self.urgency = base_urgency           # 当前紧急度（会随时间变化）
-        self.deadline = datetime.strptime(deadline, "%Y-%m-%d").date()
-        self.note = note
-        self.base_size = base_size
+# 初始化 Pygame
+pygame.init()
 
-tasks = [
-    LifeTask("大学英语六级 CET-6", 8.7, 8.0, "2025-12-14", "还剩几天就考试了！", 550),
-    LifeTask("陪父母", 9.9, 2.0, "2026-12-31", "真正重要的事", 500),
-    LifeTask("回微信消息", 2.2, 7.8, "2025-12-06", "虚假紧急", 280),
-    LifeTask("刷短视频", 0.7, 0.7, "2026-01-01", "纯粹浪费生命", 150),
+# 常量定义
+WIDTH, HEIGHT = 1000, 700
+MATRIX_TOP_LEFT = (100, 100)  # 矩阵左上角坐标
+MATRIX_WIDTH, MATRIX_HEIGHT = 800, 500  # 矩阵区域大小
+TASK_RADIUS = 15
+FPS = 60
+
+# 颜色定义
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GRAY = (200, 200, 200)
+RED = (255, 100, 100)
+GREEN = (100, 255, 100)
+BLUE = (100, 100, 255)
+YELLOW = (255, 255, 100)
+QUADRANT_COLORS = [
+    (200, 200, 255),   # 左上 Q2 - 蓝色调 (重要，不紧急)
+    (255, 200, 200),   # 右上 Q1 - 红色调 (重要，紧急)
+    (255, 255, 200),   # 右下 Q3 - 黄色调 (不重要，紧急)
+    (200, 255, 200)    # 左下 Q4 - 绿色调 (不重要，不紧急)
 ]
 
-# ==================== 画布 ====================
-fig = plt.figure(figsize=(10, 10), facecolor='#0d1117')
-ax = fig.add_subplot(111)
-ax.set_xlim(0, 10)
-ax.set_ylim(0, 10)
-ax.axis('off')
+# 创建窗口
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("动态任务矩阵 (艾森豪威尔矩阵)")
+clock = pygame.time.Clock()
+font = pygame.font.SysFont('simhei', 20)  # 使用黑体，支持中文
+title_font = pygame.font.SysFont('simhei', 24, bold=True)
 
-# 四方向终极渐变背景
-colors = ["#1e90ff", "#00dfb2", "#ffb636", "#ff2d55"]
-cmap = LinearSegmentedColormap.from_list("birth_to_death", colors, N=1024)
-x, y = np.linspace(0,1,800), np.linspace(0,1,800)
-X, Y = np.meshgrid(x, y)
-Z = X * Y
-ax.imshow(Z, cmap=cmap, extent=[0,10,0,10], origin='lower', alpha=0.96, zorder=0)
+class Task:
+    """任务类"""
+    def __init__(self, id, title, description, importance, urgency, creation_date, deadline):
+        self.id = id
+        self.title = title
+        self.description = description
+        self.importance = np.clip(importance, 0.0, 1.0)  # 重要性 [0, 1]
+        self.urgency = np.clip(urgency, 0.0, 1.0)       # 紧急性 [0, 1]
+        self.creation_date = creation_date
+        self.deadline = deadline
+        self.color = self.calculate_color()
+        self.being_dragged = False  # 是否正在被拖拽
+        self.detail_visible = False # 详情是否显示
 
-# 文字
-ax.axhline(5, color='white', lw=1, alpha=0.3)
-ax.axvline(5, color='white', lw=1, alpha=0.3)
-ax.text(5, 5.35, "importance", ha='center', va='bottom', fontsize=28, fontweight='bold', color='white')
-ax.text(5.4, 5, "urgency", ha='left', va='center', fontsize=28, fontweight='bold', color='white')
-ax.text(0.15, 0.15, "birthline", ha='left', va='bottom', fontsize=34, color='#40c9ff', fontweight='bold')
-ax.text(9.85, 9.85, "deadline", ha='right', va='top', fontsize=38, color='#ff3366', fontweight='bold')
+    def calculate_color(self):
+        """根据紧急和重要程度计算颜色 (示例：越红越紧急，越绿越重要)"""
+        r = int(150 + 100 * self.urgency)   # 紧急度影响红色通道
+        g = int(150 + 100 * self.importance) # 重要度影响绿色通道
+        b = 150
+        return (r, g, b)
 
-# 存储绘制出来的艺术品，方便清除
-circles = []
-shadows = []
-name_texts = []
+    def get_screen_pos(self):
+        """将标准化坐标转换为屏幕坐标"""
+        x = MATRIX_TOP_LEFT[0] + self.urgency * MATRIX_WIDTH
+        y = MATRIX_TOP_LEFT[1] + (1 - self.importance) * MATRIX_HEIGHT  # Y轴从上往下增加，所以用1减
+        return (int(x), int(y))
 
-def redraw():
-    global circles, shadows, name_texts
+    def contains_point(self, point):
+        """检查点是否在任务点内"""
+        task_pos = self.get_screen_pos()
+        distance = np.sqrt((point[0] - task_pos[0])**2 + (point[1] - task_pos[1])**2)
+        return distance <= TASK_RADIUS
+
+    def draw(self, surface):
+        """绘制任务点"""
+        pos = self.get_screen_pos()
+        color = RED if self.being_dragged else self.color  # 被拖拽时高亮为红色
+
+        # 绘制任务点
+        pygame.draw.circle(surface, color, pos, TASK_RADIUS)
+        pygame.draw.circle(surface, BLACK, pos, TASK_RADIUS, 2)  # 黑色边框
+
+        # 如果详情可见，绘制详细信息框
+        if self.detail_visible:
+            self.draw_detail(surface, pos)
+
+    def draw_detail(self, surface, task_pos):
+        """绘制任务详细信息框"""
+        # 信息框尺寸和位置
+        info_width, info_height = 300, 150
+        # 确保信息框显示在屏幕内
+        info_x = task_pos[0] + 20
+        info_y = task_pos[1] - info_height // 2
+
+        if info_x + info_width > WIDTH:
+            info_x = task_pos[0] - info_width - 20
+        if info_y + info_height > HEIGHT:
+            info_y = HEIGHT - info_height - 10
+
+        # 绘制半透明背景
+        s = pygame.Surface((info_width, info_height), pygame.SRCALPHA)
+        s.fill((50, 50, 50, 240))  # 深灰色，半透明
+        surface.blit(s, (info_x, info_y))
+
+        # 绘制边框
+        pygame.draw.rect(surface, WHITE, (info_x, info_y, info_width, info_height), 2)
+
+        # 绘制文本
+        y_offset = info_y + 10
+        title_surf = title_font.render(f"任务: {self.title}", True, WHITE)
+        surface.blit(title_surf, (info_x + 10, y_offset)); y_offset += 30
+
+        desc_surf = font.render(f"描述: {self.description}", True, WHITE)
+        surface.blit(desc_surf, (info_x + 10, y_offset)); y_offset += 25
+
+        imp_surf = font.render(f"重要性: {self.importance:.2f}", True, GREEN)
+        surface.blit(imp_surf, (info_x + 10, y_offset)); y_offset += 25
+
+        urg_surf = font.render(f"紧急性: {self.urgency:.2f}", True, RED)
+        surface.blit(urg_surf, (info_x + 10, y_offset)); y_offset += 25
+
+        # 计算剩余天数
+        days_left = (self.deadline - datetime.now()).days
+        days_surf = font.render(f"剩余天数: {days_left}", True, YELLOW)
+        surface.blit(days_surf, (info_x + 10, y_offset))
+
+# 创建示例任务
+tasks = [
+    Task("1", "备考英语六级", "完成至少5套真题，重点练习听力与阅读", 0.9, 0.8, 
+         datetime.now() - timedelta(days=10), datetime.now() + timedelta(days=20)),
+    Task("2", "完成数学分析作业", "完成第三章习题，理清极限概念", 0.7, 0.6,
+         datetime.now() - timedelta(days=2), datetime.now() + timedelta(days=7)),
+    Task("3", "机器学习项目", "复现论文中的基础模型", 0.8, 0.3,
+         datetime.now() - timedelta(days=30), datetime.now() + timedelta(days=60)),
+    Task("4", "阅读课外书籍", "每周阅读30页专业相关书籍", 0.5, 0.2,
+         datetime.now(), datetime.now() + timedelta(days=365)),
+]
+
+# 主循环
+selected_task = None  # 当前被拖拽的任务
+running = True
+
+while running:
+    mouse_pos = pygame.mouse.get_pos()
     
-    # 正确清除方式（不再动 ax.patches）
-    for art in circles + shadows + name_texts:
-        art.remove()
-    circles.clear(); shadows.clear(); name_texts.clear()
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
 
+        # 鼠标按下事件
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:  # 左键
+                # 检查是否点击了任务点
+                clicked_task = None
+                for task in tasks:
+                    if task.contains_point(mouse_pos):
+                        clicked_task = task
+                        break
+
+                if clicked_task:
+                    # 如果点击了任务点，开始拖拽或显示详情
+                    if selected_task is None:
+                        selected_task = clicked_task
+                        selected_task.being_dragged = True
+                    # 点击另一个任务点，切换详情显示
+                    for t in tasks:
+                        t.detail_visible = (t is clicked_task and not t.detail_visible)
+                else:
+                    # 点击空白处，取消所有任务的详情显示和被拖拽状态
+                    for task in tasks:
+                        task.detail_visible = False
+                        if task.being_dragged:
+                            task.being_dragged = False
+                            selected_task = None
+
+        # 鼠标释放事件
+        elif event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1 and selected_task:  # 左键释放且有被拖拽的任务
+                selected_task.being_dragged = False
+                selected_task = None
+
+        # 鼠标拖拽事件 (持续触发)
+        elif event.type == pygame.MOUSEMOTION:
+            if selected_task and selected_task.being_dragged:
+                # 将鼠标位置转换为紧急度和重要度
+                rel_x = (mouse_pos[0] - MATRIX_TOP_LEFT[0]) / MATRIX_WIDTH
+                rel_y = 1 - (mouse_pos[1] - MATRIX_TOP_LEFT[1]) / MATRIX_HEIGHT
+
+                # 限制在[0,1]范围内
+                new_urgency = np.clip(rel_x, 0.0, 1.0)
+                new_importance = np.clip(rel_y, 0.0, 1.0)
+
+                selected_task.urgency = new_urgency
+                selected_task.importance = new_importance
+                selected_task.color = selected_task.calculate_color()  # 更新颜色
+
+    # --- 绘制开始 ---
+    screen.fill(WHITE)
+
+    # 绘制矩阵区域和四个象限
+    quadrant_rects = [
+        (MATRIX_TOP_LEFT[0], MATRIX_TOP_LEFT[1], MATRIX_WIDTH/2, MATRIX_HEIGHT/2), # Q2
+        (MATRIX_TOP_LEFT[0] + MATRIX_WIDTH/2, MATRIX_TOP_LEFT[1], MATRIX_WIDTH/2, MATRIX_HEIGHT/2), # Q1
+        (MATRIX_TOP_LEFT[0] + MATRIX_WIDTH/2, MATRIX_TOP_LEFT[1] + MATRIX_HEIGHT/2, MATRIX_WIDTH/2, MATRIX_HEIGHT/2), # Q3
+        (MATRIX_TOP_LEFT[0], MATRIX_TOP_LEFT[1] + MATRIX_HEIGHT/2, MATRIX_WIDTH/2, MATRIX_HEIGHT/2)  # Q4
+    ]
+
+    for i, rect in enumerate(quadrant_rects):
+        pygame.draw.rect(screen, QUADRANT_COLORS[i], rect)
+
+    # 绘制坐标轴
+    pygame.draw.line(screen, BLACK, 
+                    (MATRIX_TOP_LEFT[0], MATRIX_TOP_LEFT[1] + MATRIX_HEIGHT/2),
+                    (MATRIX_TOP_LEFT[0] + MATRIX_WIDTH, MATRIX_TOP_LEFT[1] + MATRIX_HEIGHT/2), 3)  # X轴
+    pygame.draw.line(screen, BLACK, 
+                    (MATRIX_TOP_LEFT[0] + MATRIX_WIDTH/2, MATRIX_TOP_LEFT[1]),
+                    (MATRIX_TOP_LEFT[0] + MATRIX_WIDTH/2, MATRIX_TOP_LEFT[1] + MATRIX_HEIGHT), 3)  # Y轴
+
+    # 绘制坐标轴标签
+    birth_label = font.render("Birthline", True, BLUE)
+    deadline_label = font.render("Deadline", True, RED)
+    importance_label = font.render("Importance", True, GREEN)
+    low_imp_label = font.render("(Low)", True, BLACK)
+    high_imp_label = font.render("(High)", True, BLACK)
+    low_urg_label = font.render("(Low)", True, BLACK)
+    high_urg_label = font.render("(High)", True, BLACK)
+
+    screen.blit(birth_label, (MATRIX_TOP_LEFT[0] - 10, MATRIX_TOP_LEFT[1] + MATRIX_HEIGHT + 20))
+    screen.blit(deadline_label, (MATRIX_TOP_LEFT[0] + MATRIX_WIDTH - 70, MATRIX_TOP_LEFT[1] + MATRIX_HEIGHT + 20))
+    screen.blit(importance_label, (MATRIX_TOP_LEFT[0] - 100, MATRIX_TOP_LEFT[1] - 30))
+    screen.blit(low_imp_label, (MATRIX_TOP_LEFT[0] - 40, MATRIX_TOP_LEFT[1] + MATRIX_HEIGHT + 5))
+    screen.blit(high_imp_label, (MATRIX_TOP_LEFT[0] - 40, MATRIX_TOP_LEFT[1] - 20))
+    screen.blit(low_urg_label, (MATRIX_TOP_LEFT[0] - 40, MATRIX_TOP_LEFT[1] + MATRIX_HEIGHT + 5))
+    screen.blit(high_urg_label, (MATRIX_TOP_LEFT[0] + MATRIX_WIDTH - 40, MATRIX_TOP_LEFT[1] + MATRIX_HEIGHT + 5))
+
+    # 绘制象限标签
+    q2_label = font.render("重要，不紧急", True, BLACK)
+    q1_label = font.render("重要，紧急", True, BLACK)
+    q3_label = font.render("不重要，紧急", True, BLACK)
+    q4_label = font.render("不重要，不紧急", True, BLACK)
+
+    screen.blit(q2_label, (MATRIX_TOP_LEFT[0] + 20, MATRIX_TOP_LEFT[1] + 20))
+    screen.blit(q1_label, (MATRIX_TOP_LEFT[0] + MATRIX_WIDTH/2 + 20, MATRIX_TOP_LEFT[1] + 20))
+    screen.blit(q3_label, (MATRIX_TOP_LEFT[0] + MATRIX_WIDTH/2 + 20, MATRIX_TOP_LEFT[1] + MATRIX_HEIGHT/2 + 20))
+    screen.blit(q4_label, (MATRIX_TOP_LEFT[0] + 20, MATRIX_TOP_LEFT[1] + MATRIX_HEIGHT/2 + 20))
+
+    # 绘制所有任务点
     for task in tasks:
-        # 动态更新紧急度
-        days = (task.deadline - date.today()).days
-        if days <= 0:
-            task.urgency = 10.0
-        else:
-            task.urgency = min(10.0, task.base_urgency + (10 - task.base_urgency) * max(0, (60 - days)/60))
+        task.draw(screen)
 
-        scale = 1 + (task.importance + task.urgency) / 12
-        radius = 0.06 * scale * (task.base_size ** 0.5) / 10
+    # 绘制标题
+    title_label = title_font.render("动态任务矩阵 - 艾森豪威尔法则", True, BLACK)
+    screen.blit(title_label, (WIDTH//2 - title_label.get_width()//2, 30))
 
-        # 阴影
-        shadow = patches.Circle(
-            (task.importance + 0.12, task.urgency - 0.12),
-            radius * 1.15, color='black', alpha=0.3, zorder=9
-        )
-        ax.add_patch(shadow)
-        shadows.append(shadow)
+    # 绘制操作说明
+    instructions = [
+        "操作说明:",
+        "- 点击任务点: 查看/隐藏详细信息",
+        "- 拖拽任务点: 调整其重要性和紧急性",
+        "- 点击空白处: 隐藏所有详细信息"
+    ]
+    
+    for i, line in enumerate(instructions):
+        instr_surf = font.render(line, True, BLACK)
+        screen.blit(instr_surf, (50, HEIGHT - 120 + i * 25))
 
-        # 主圆点
-        circle = patches.Circle(
-            (task.importance, task.urgency),
-            radius, facecolor='white', edgecolor='#222222', linewidth=2.5, zorder=10
-        )
-        ax.add_patch(circle)
-        circles.append(circle)
+    pygame.display.flip()
+    clock.tick(FPS)
 
-        # 任务名（带描边）
-        txt = ax.text(task.importance, task.urgency + 0.6, task.name,
-                      ha='center', va='bottom', fontsize=13, fontweight='bold', color='white',
-                      path_effects=[withStroke(linewidth=5, foreground='black')])
-        name_texts.append(txt)
-
-    fig.canvas.draw_idle()
-
-redraw()
-
-# ==================== 点击弹出卡片 ====================
-def on_click(event):
-    if not event.inaxes: return
-    for task in tasks:
-        dist = ((event.xdata - task.importance)**2 + (event.ydata - task.urgency)**2)**0.5
-        if dist < 1.2:
-            days = (task.deadline - date.today()).days
-            msg = f"{task.name}\n\n"
-            msg += f"重要度　{task.importance}/10\n"
-            msg += f"紧急度　{task.urgency:.1f}/10\n"
-            msg += f"截止日期　{task.deadline}\n"
-            msg += f"距离今天　{max(days,0)} 天\n\n"
-            msg += f"{task.note}"
-
-            # 删除旧卡片
-            for txt in fig.texts[7:]:  # 前7个是固定文字
-                txt.remove()
-
-            card = fig.text(0.97, 0.80, msg, ha='right', va='top', fontsize=15,
-                            bbox=dict(boxstyle="round,pad=1.3", facecolor="white", alpha=0.97),
-                            transform=fig.transFigure, linespacing=1.5)
-            fig.canvas.draw_idle()
-            break
-
-fig.canvas.mpl_connect('button_press_event', on_click)
-
-# 可选：每天自动刷新（配合任务管理器开机自启）
-# import threading, time
-# def auto_refresh():
-#     while True:
-#         time.sleep(3600)  # 每小时更新一次
-#         plt.gca().cla()
-#         redraw()
-# threading.Thread(target=auto_refresh, daemon=True).start()
-
-plt.show()
+pygame.quit()
+sys.exit()
