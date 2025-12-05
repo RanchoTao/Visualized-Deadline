@@ -1,0 +1,135 @@
+# life_matrix_perfect.py  —— 绝对不会再报错的生死矩阵终极版
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.patheffects import withStroke
+import numpy as np
+from datetime import date, datetime
+
+# ==================== 任务类 ====================
+class LifeTask:
+    def __init__(self, name, importance, base_urgency, deadline, note="", base_size=300):
+        self.name = name
+        self.importance = importance
+        self.base_urgency = base_urgency      # 初始紧急度
+        self.urgency = base_urgency           # 当前紧急度（会随时间变化）
+        self.deadline = datetime.strptime(deadline, "%Y-%m-%d").date()
+        self.note = note
+        self.base_size = base_size
+
+tasks = [
+    LifeTask("大学英语六级 CET-6", 8.7, 8.0, "2025-12-14", "还剩几天就考试了！", 550),
+    LifeTask("陪父母", 9.9, 2.0, "2026-12-31", "真正重要的事", 500),
+    LifeTask("回微信消息", 2.2, 7.8, "2025-12-06", "虚假紧急", 280),
+    LifeTask("刷短视频", 0.7, 0.7, "2026-01-01", "纯粹浪费生命", 150),
+]
+
+# ==================== 画布 ====================
+fig = plt.figure(figsize=(10, 10), facecolor='#0d1117')
+ax = fig.add_subplot(111)
+ax.set_xlim(0, 10)
+ax.set_ylim(0, 10)
+ax.axis('off')
+
+# 四方向终极渐变背景
+colors = ["#1e90ff", "#00dfb2", "#ffb636", "#ff2d55"]
+cmap = LinearSegmentedColormap.from_list("birth_to_death", colors, N=1024)
+x, y = np.linspace(0,1,800), np.linspace(0,1,800)
+X, Y = np.meshgrid(x, y)
+Z = X * Y
+ax.imshow(Z, cmap=cmap, extent=[0,10,0,10], origin='lower', alpha=0.96, zorder=0)
+
+# 文字
+ax.axhline(5, color='white', lw=1, alpha=0.3)
+ax.axvline(5, color='white', lw=1, alpha=0.3)
+ax.text(5, 5.35, "importance", ha='center', va='bottom', fontsize=28, fontweight='bold', color='white')
+ax.text(5.4, 5, "urgency", ha='left', va='center', fontsize=28, fontweight='bold', color='white')
+ax.text(0.15, 0.15, "birthline", ha='left', va='bottom', fontsize=34, color='#40c9ff', fontweight='bold')
+ax.text(9.85, 9.85, "deadline", ha='right', va='top', fontsize=38, color='#ff3366', fontweight='bold')
+
+# 存储绘制出来的艺术品，方便清除
+circles = []
+shadows = []
+name_texts = []
+
+def redraw():
+    global circles, shadows, name_texts
+    
+    # 正确清除方式（不再动 ax.patches）
+    for art in circles + shadows + name_texts:
+        art.remove()
+    circles.clear(); shadows.clear(); name_texts.clear()
+
+    for task in tasks:
+        # 动态更新紧急度
+        days = (task.deadline - date.today()).days
+        if days <= 0:
+            task.urgency = 10.0
+        else:
+            task.urgency = min(10.0, task.base_urgency + (10 - task.base_urgency) * max(0, (60 - days)/60))
+
+        scale = 1 + (task.importance + task.urgency) / 12
+        radius = 0.06 * scale * (task.base_size ** 0.5) / 10
+
+        # 阴影
+        shadow = patches.Circle(
+            (task.importance + 0.12, task.urgency - 0.12),
+            radius * 1.15, color='black', alpha=0.3, zorder=9
+        )
+        ax.add_patch(shadow)
+        shadows.append(shadow)
+
+        # 主圆点
+        circle = patches.Circle(
+            (task.importance, task.urgency),
+            radius, facecolor='white', edgecolor='#222222', linewidth=2.5, zorder=10
+        )
+        ax.add_patch(circle)
+        circles.append(circle)
+
+        # 任务名（带描边）
+        txt = ax.text(task.importance, task.urgency + 0.6, task.name,
+                      ha='center', va='bottom', fontsize=13, fontweight='bold', color='white',
+                      path_effects=[withStroke(linewidth=5, foreground='black')])
+        name_texts.append(txt)
+
+    fig.canvas.draw_idle()
+
+redraw()
+
+# ==================== 点击弹出卡片 ====================
+def on_click(event):
+    if not event.inaxes: return
+    for task in tasks:
+        dist = ((event.xdata - task.importance)**2 + (event.ydata - task.urgency)**2)**0.5
+        if dist < 1.2:
+            days = (task.deadline - date.today()).days
+            msg = f"{task.name}\n\n"
+            msg += f"重要度　{task.importance}/10\n"
+            msg += f"紧急度　{task.urgency:.1f}/10\n"
+            msg += f"截止日期　{task.deadline}\n"
+            msg += f"距离今天　{max(days,0)} 天\n\n"
+            msg += f"{task.note}"
+
+            # 删除旧卡片
+            for txt in fig.texts[7:]:  # 前7个是固定文字
+                txt.remove()
+
+            card = fig.text(0.97, 0.80, msg, ha='right', va='top', fontsize=15,
+                            bbox=dict(boxstyle="round,pad=1.3", facecolor="white", alpha=0.97),
+                            transform=fig.transFigure, linespacing=1.5)
+            fig.canvas.draw_idle()
+            break
+
+fig.canvas.mpl_connect('button_press_event', on_click)
+
+# 可选：每天自动刷新（配合任务管理器开机自启）
+# import threading, time
+# def auto_refresh():
+#     while True:
+#         time.sleep(3600)  # 每小时更新一次
+#         plt.gca().cla()
+#         redraw()
+# threading.Thread(target=auto_refresh, daemon=True).start()
+
+plt.show()
