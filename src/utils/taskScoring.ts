@@ -211,7 +211,7 @@ export const achievementCatalog: Omit<Achievement, 'unlockedAt'>[] = [
   { id: 'first-task-completed', title: '第一次完成任务', description: '完成带来的释放会被计入你的节奏。' },
   { id: 'first-low-value-abandoned', title: '第一次放弃低价值任务', description: '主动卸载低价值事项，也是推进系统稳定的一部分。' },
   { id: 'first-manageable-pressure', title: '第一次压力降到可控区', description: '你的压力指数回到可观察、可调整的范围。' },
-  { id: 'first-three-completed', title: '第一次完成 3 个任务', description: '连续完成正在形成可见的生活动量。' },
+  { id: 'first-three-completed', title: '第一次完成 3 个任务', description: '连续完成正在形成可见的秩序感。' },
   { id: 'first-seven-day-progress', title: '第一次完成 7 天内任务推进', description: '你在一周窗口内完成了推进，节奏开始被看见。' },
   { id: 'first-recovery-relief', title: '第一次使用恢复/娱乐活动降低压力', description: '恢复不是逃避，它是让系统继续运转的维护。' },
 ];

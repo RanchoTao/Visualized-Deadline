@@ -23,7 +23,8 @@ function formatCurrentTime(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0');
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day} ${hours}:${minutes}`;
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
 function clampPosition(value: number): number {
@@ -110,7 +111,7 @@ export function PriorityMap({ tasks }: PriorityMapProps) {
   const selectedTask = positionedTasks.find(({ task }) => task.id === selectedTaskId)?.task;
 
   useEffect(() => {
-    const intervalId = window.setInterval(() => setNow(new Date()), 60_000);
+    const intervalId = window.setInterval(() => setNow(new Date()), 1_000);
     return () => window.clearInterval(intervalId);
   }, []);
 
@@ -121,14 +122,14 @@ export function PriorityMap({ tasks }: PriorityMapProps) {
           <p className="text-sm font-semibold text-slate-500">紧急重要矩阵</p>
           <h2 className="text-2xl font-bold text-slate-950">任务在时间和重要性中的位置</h2>
         </div>
-        <div className="text-right">
-          <p className="text-sm text-slate-500">越靠右越接近截止，越靠上越重要。</p>
-          <p className="mt-1 text-xs font-medium text-slate-400">当前时间 {formatCurrentTime(now)}</p>
+        <div className="rounded-2xl bg-slate-50 px-4 py-2 text-right ring-1 ring-white/80">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">当前时间</p>
+          <p className="mt-1 font-mono text-sm font-semibold text-slate-700">{formatCurrentTime(now)}</p>
         </div>
       </div>
 
       <div className="overflow-x-auto pb-2">
-        <div className="relative h-[31rem] min-w-[42rem] overflow-hidden rounded-[2rem] border border-slate-200 bg-gradient-to-br from-white via-slate-50/80 to-sky-50/40 p-6 shadow-inner">
+        <div className="relative mx-auto aspect-square w-full min-w-[34rem] max-w-[44rem] overflow-hidden rounded-[2rem] border border-slate-200 bg-gradient-to-br from-white via-slate-50/80 to-sky-50/40 p-6 shadow-inner">
           <div className="pointer-events-none absolute inset-x-16 bottom-16 top-16 border border-slate-300/80 bg-[linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(0deg,rgba(148,163,184,0.08)_1px,transparent_1px)] bg-[size:12.5%_12.5%]" />
           <div className="pointer-events-none absolute bottom-16 left-16 top-16 w-[calc(50%-4rem)] bg-sky-50/35" />
           <div className="pointer-events-none absolute bottom-16 right-16 top-16 w-[calc(50%-4rem)] bg-rose-50/30" />
@@ -136,10 +137,10 @@ export function PriorityMap({ tasks }: PriorityMapProps) {
           <div className="pointer-events-none absolute bottom-16 left-1/2 top-16 border-l border-slate-300/90" />
           <div className="pointer-events-none absolute left-16 right-16 top-1/2 border-t border-slate-300/90" />
 
-          <div className="pointer-events-none absolute left-20 top-20 text-xs font-semibold text-sky-700/75">II 重要但不紧急</div>
-          <div className="pointer-events-none absolute right-20 top-20 text-xs font-semibold text-rose-700/75">I 紧急且重要</div>
-          <div className="pointer-events-none absolute bottom-24 left-20 text-xs font-semibold text-slate-500/80">III 不紧急且不重要</div>
-          <div className="pointer-events-none absolute bottom-24 right-20 text-xs font-semibold text-amber-700/70">IV 紧急但不重要</div>
+          <div className="pointer-events-none absolute left-20 top-20 max-w-[35%] truncate text-xs font-semibold text-sky-700/75">II 重要但不紧急</div>
+          <div className="pointer-events-none absolute right-20 top-20 max-w-[35%] truncate text-right text-xs font-semibold text-rose-700/75">I 紧急且重要</div>
+          <div className="pointer-events-none absolute bottom-24 left-20 max-w-[35%] truncate text-xs font-semibold text-slate-500/80">III 不紧急且不重要</div>
+          <div className="pointer-events-none absolute bottom-24 right-20 max-w-[35%] truncate text-right text-xs font-semibold text-amber-700/70">IV 紧急但不重要</div>
 
           <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-center text-[11px] font-medium text-slate-400 [writing-mode:vertical-rl]">
             不紧急 / 时间出生线
@@ -177,7 +178,7 @@ export function PriorityMap({ tasks }: PriorityMapProps) {
                   className={`block rounded-full border-4 shadow-md transition group-hover:scale-110 ${taskPointTone(task)} ${active ? 'scale-110 ring-4 ring-sky-100/80' : ''} ${isTaskActive(task) ? 'animate-task-breathe' : ''}`}
                   style={isTaskActive(task) ? { animationDuration: `${getPulseDuration(task)}s` } : undefined}
                 />
-                <span className="absolute left-6 top-1/2 max-w-28 -translate-y-1/2 truncate rounded-full bg-white/90 px-2.5 py-1 text-xs font-medium text-slate-600 shadow-sm ring-1 ring-white/80 backdrop-blur group-hover:max-w-40">
+                <span className={`absolute top-1/2 max-w-28 -translate-y-1/2 truncate rounded-full bg-white/90 px-2.5 py-1 text-xs font-medium text-slate-600 shadow-sm ring-1 ring-white/80 backdrop-blur group-hover:max-w-40 ${left > 78 ? 'right-6' : 'left-6'}`}>
                   {task.title}
                 </span>
               </button>

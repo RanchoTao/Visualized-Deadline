@@ -15,6 +15,7 @@ export interface Task {
   lifecycleStatus: LifecycleStatus;
   completedAt?: string;
   abandonedAt?: string;
+  reviewNote?: string;
   schemaVersion: 3;
   createdAt: string;
   updatedAt: string;

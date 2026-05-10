@@ -21,7 +21,7 @@ import {
   clampImportance,
   clampPressure,
   clampProgress,
-  getRecommendedTask,
+  getTaskScore,
   migrateLegacyImportance,
   normalizeActivityType,
   normalizeLifecycleStatus,
@@ -121,6 +121,7 @@ function normalizeStoredTask(task: LegacyTask): Task {
     lifecycleStatus: migratedLifecycleStatus,
     completedAt,
     abandonedAt,
+    reviewNote: typeof task.reviewNote === 'string' ? task.reviewNote : undefined,
     schemaVersion: 3,
     createdAt: task.createdAt || now,
     updatedAt: task.updatedAt || now,
@@ -158,6 +159,7 @@ function createTask(input: TaskInput): Task {
     id: crypto.randomUUID(),
     completedAt: normalizedInput.lifecycleStatus === 'completed' ? now : undefined,
     abandonedAt: normalizedInput.lifecycleStatus === 'abandoned' ? now : undefined,
+    reviewNote: undefined,
     schemaVersion: 3,
     createdAt: now,
     updatedAt: now,
@@ -191,7 +193,7 @@ function App() {
   const normalizedAchievements = useMemo(() => normalizeStoredAchievements(achievements), [achievements]);
   const normalizedProfile = useMemo(() => normalizeProfile(profile), [profile]);
   const activeTasks = useMemo(() => normalizedTasks.filter((task) => task.lifecycleStatus === 'active'), [normalizedTasks]);
-  const recommendedTask = useMemo(() => getRecommendedTask(normalizedTasks), [normalizedTasks]);
+  const recommendedTasks = useMemo(() => normalizedTasks.filter((task) => task.lifecycleStatus === 'active').sort((a, b) => getTaskScore(b) - getTaskScore(a)).slice(0, 3), [normalizedTasks]);
   const pressure = useMemo<PressureBreakdown>(() => calculatePressureIndex(normalizedTasks, baselinePressure ?? 35), [normalizedTasks, baselinePressure]);
 
   useEffect(() => {
@@ -317,6 +319,22 @@ function App() {
     setTasks((currentTasks) => currentTasks.filter((task) => task.id !== taskId));
   }
 
+
+  function updateReviewNote(taskId: string, reviewNote: string) {
+    const now = new Date().toISOString();
+    setTasks((currentTasks) =>
+      currentTasks.map((task) =>
+        task.id === taskId
+          ? {
+              ...task,
+              reviewNote,
+              updatedAt: now,
+            }
+          : task,
+      ),
+    );
+  }
+
   function startEditing(task: Task) {
     setEditingTask(task);
     setIsFormOpen(true);
@@ -326,7 +344,7 @@ function App() {
     <>
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Visualized Deadline · v0.6-alpha</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Visualized Deadline · v0.5.1</p>
           <h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-950 md:text-5xl">可视化 Deadline，非传统 Todo List。</h1>
           <p className="mt-3 max-w-2xl text-slate-600">系统记录任务、时间压力与人生节奏；你只需要观察状态，选择下一步。</p>
         </div>
@@ -336,9 +354,24 @@ function App() {
       </header>
 
       <PressureCard pressure={pressure} onBaselinePressureChange={saveBaselinePressure} onResetBaseline={resetBaselinePressure} />
-      <RecommendationCard task={recommendedTask} />
+      <RecommendationCard tasks={recommendedTasks} />
 
-      {isFormOpen ? <TaskForm task={editingTask} onCancel={closeForm} onSubmit={handleSubmit} /> : null}
+      {isFormOpen ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/15 px-4 py-6 backdrop-blur-sm">
+          <section className="max-h-[calc(100vh-3rem)] w-full max-w-5xl overflow-y-auto rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-2xl shadow-slate-300/60">
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Project Sheet</p>
+                <h2 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">{editingTask ? '编辑项目' : '新建项目'}</h2>
+              </div>
+              <button type="button" onClick={closeForm} className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200">
+                关闭
+              </button>
+            </div>
+            <TaskForm task={editingTask} onCancel={closeForm} onSubmit={handleSubmit} />
+          </section>
+        </div>
+      ) : null}
 
       <AchievementsPanel achievements={normalizedAchievements} />
 
@@ -346,7 +379,7 @@ function App() {
         <PriorityMap tasks={activeTasks} />
         <div className="space-y-6">
           <TaskList tasks={activeTasks} onArchive={archiveTask} onDelete={deleteTask} onEdit={startEditing} />
-          <ActivityLog tasks={normalizedTasks} />
+          <ActivityLog tasks={normalizedTasks} onDelete={deleteTask} onReviewNoteChange={updateReviewNote} />
         </div>
       </div>
     </>
@@ -357,7 +390,7 @@ function App() {
     vd: vdModule,
     social: <SocialPage />,
     profile: <ProfilePage profile={normalizedProfile} onProfileChange={setProfile} />,
-    log: <LogPage tasks={normalizedTasks} />,
+    log: <LogPage tasks={normalizedTasks} onDelete={deleteTask} onReviewNoteChange={updateReviewNote} />,
   };
 
   return (

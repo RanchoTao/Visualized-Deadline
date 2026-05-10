@@ -2,9 +2,9 @@
 
 **可视化 Deadline，非传统 Todo List。**
 
-Visualized-Deadline（VD）现在是 LifeOS Shell 的第一个工作模块：它仍然负责可视化 Deadline、认知压力与生活动量，同时为后续的人生地图、社交、个人主页和日志模块保留清晰入口。
+Visualized-Deadline（VD）现在保留 LifeOS Shell 的模块入口：它仍然负责可视化 Deadline、认知压力与生活节奏，同时为后续的人生地图、社交、个人主页和日志模块保留清晰入口。
 
-## v0.6-alpha：LifeOS Shell
+## v0.5.1：UX Refinement
 
 - 顶部导航：在不刷新页面的情况下切换「人生地图 / VD / 社交 / 个人主页 / 日志」。
 - VD 默认模块：保留压力指数、主观压力基线滑杆、优先级地图、活动列表、归档日志、成就和本地持久化。
@@ -12,6 +12,8 @@ Visualized-Deadline（VD）现在是 LifeOS Shell 的第一个工作模块：它
 - 社交：保留 relationship map、contact notes、social energy tracking、interaction review 的未来说明。
 - 个人主页：本地编辑 nickname、height、weight、identity、skills、longTermGoals、currentStage。
 - 日志：独立展示已完成 / 已放弃项目、时间戳和活动类型，同时 VD 内仍保留小日志预览。
+- 表单体验：新建 / 编辑项目使用居中大弹窗，不再静默插入页面。
+- 复盘记录：归档项目支持展开、删除与填写「复盘记录」。
 
 ## 压力模型
 

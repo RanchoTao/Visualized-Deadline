@@ -22,7 +22,8 @@ export function AchievementsPanel({ achievements }: AchievementsPanelProps) {
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-slate-500">Achievement System</p>
-          <h2 className="text-2xl font-semibold text-slate-950">生活动量</h2>
+          <h2 className="text-2xl font-semibold text-slate-950">成就系统</h2>
+          <p className="mt-1 text-sm text-slate-500">用轻量反馈记录你正在恢复秩序。</p>
         </div>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600">{achievements.length}/{achievementCatalog.length}</span>
       </div>

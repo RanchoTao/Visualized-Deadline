@@ -31,10 +31,13 @@ export function PressureCard({ pressure, onBaselinePressureChange, onResetBaseli
           <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-slate-100">
             <div className={`h-full rounded-full transition-all duration-700 ${pressure.state === 'burnout' ? 'bg-rose-300' : 'bg-slate-700'}`} style={{ width: `${meterWidth}%` }} />
           </div>
-          <div className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-3">
-            <span className="rounded-full bg-slate-50 px-3 py-2">基线 {pressure.baselinePressure}</span>
-            <span className="rounded-full bg-slate-50 px-3 py-2">活动压力 +{pressure.activePressure}</span>
-            <span className="rounded-full bg-slate-50 px-3 py-2">完成 / 恢复 -{pressure.relief}</span>
+          <div className="mt-4 rounded-3xl bg-slate-50/80 p-4 ring-1 ring-white/80">
+            <p className="text-sm font-semibold text-slate-600">压力 = 主观压力基线 + 活动压力 - 完成/恢复释放</p>
+            <div className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-3">
+              <span className="rounded-full bg-white px-3 py-2">主观压力基线 {pressure.baselinePressure}</span>
+              <span className="rounded-full bg-white px-3 py-2">活动压力 +{pressure.activePressure}</span>
+              <span className="rounded-full bg-white px-3 py-2">完成/恢复释放 -{pressure.relief}</span>
+            </div>
           </div>
         </div>
 
