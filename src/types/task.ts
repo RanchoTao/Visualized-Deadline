@@ -21,3 +21,23 @@ export interface Task {
 }
 
 export type TaskInput = Omit<Task, 'id' | 'schemaVersion' | 'createdAt' | 'updatedAt' | 'completedAt' | 'abandonedAt'>;
+
+export type PressureState = 'steady' | 'manageable' | 'high' | 'overload' | 'burnout';
+
+export interface PressureBreakdown {
+  baselinePressure: number;
+  activePressure: number;
+  relief: number;
+  rawPressure: number;
+  displayPressure: number;
+  state: PressureState;
+  label: string;
+  recommendation: string;
+}
+
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  unlockedAt: string;
+}

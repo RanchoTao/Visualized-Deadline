@@ -28,6 +28,21 @@ textarea {
   }
 }
 
+@keyframes soft-rise {
+  0% {
+    transform: translate(-50%, 0.75rem);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
 .animate-task-breathe {
   animation: task-breathe 3s ease-in-out infinite;
+}
+
+.animate-soft-rise {
+  animation: soft-rise 0.42s ease-out both;
 }
