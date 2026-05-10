@@ -4,6 +4,5 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   base: '/Visualized-Deadline/',
-  plugins: [tailwindcss()],
   plugins: [react(), tailwindcss()],
 });
