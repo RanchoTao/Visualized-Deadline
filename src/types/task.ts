@@ -100,5 +100,6 @@ export interface SocialPersonData {
   notes: string;
   bio?: string;
   currentSocialState?: string;
+  angle?: number;
   color?: string;
 }

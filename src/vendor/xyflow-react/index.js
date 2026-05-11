@@ -31,7 +31,7 @@ export function Controls() {
   return React.createElement('div', {
     className: 'absolute bottom-4 left-4 select-none rounded-2xl bg-white/80 px-3 py-2 text-xs font-medium text-slate-500 shadow-sm ring-1 ring-white/80 backdrop-blur',
     style: { userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' },
-  }, '滚轮缩放 · 拖动画布平移 · 拖动节点调整位置');
+  }, 'Ctrl/⌘ + 滚轮缩放 · 拖动画布平移 · 拖动节点调整位置');
 }
 
 function isReasonablePosition(position) {
@@ -99,6 +99,7 @@ export function ReactFlow({ nodes = [], edges = [], onNodesChange, onNodeClick, 
   }
 
   function handleWheel(event) {
+    if (!event.ctrlKey && !event.metaKey) return;
     event.preventDefault();
     event.stopPropagation?.();
     const bounds = containerRef.current?.getBoundingClientRect();
