@@ -34,6 +34,22 @@ export interface PressureCalibrationSnapshot {
   note: string;
 }
 
+
+export type PressureHistoryEventType = 'auto' | 'task_created' | 'task_completed' | 'task_abandoned' | 'recalibration' | 'manual';
+
+export interface PressureHistoryRecord {
+  id: string;
+  timestamp: string;
+  pressure: number;
+  currentTaskLoad: number;
+  activeTaskCount: number;
+  completedToday: number;
+  abandonedToday: number;
+  recoveryRelief: number;
+  note?: string;
+  eventType?: PressureHistoryEventType;
+}
+
 export interface PressureBreakdown {
   referencePressure: number;
   referenceTaskLoad: number;

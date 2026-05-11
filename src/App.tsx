@@ -8,13 +8,14 @@ import { LogPage } from './components/LogPage';
 import { OnboardingFlow } from './components/OnboardingFlow';
 import { ProfilePage } from './components/ProfilePage';
 import { PressureCard } from './components/PressureCard';
+import { PressureTimeline } from './components/PressureTimeline';
 import { PriorityMap } from './components/PriorityMap';
 import { RecommendationCard } from './components/RecommendationCard';
 import { TaskForm } from './components/TaskForm';
 import { SocialPage } from './components/SocialPage';
 import { TaskList } from './components/TaskList';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import type { Achievement, ActivityType, LifecycleStatus, LifeOSModule, PressureBreakdown, PressureCalibrationSnapshot, Task, TaskInput, UserProfile } from './types/task';
+import type { Achievement, ActivityType, LifecycleStatus, LifeOSModule, PressureBreakdown, PressureCalibrationSnapshot, PressureHistoryEventType, PressureHistoryRecord, Task, TaskInput, UserProfile } from './types/task';
 import {
   achievementCatalog,
   calculatePressureIndex,
@@ -29,6 +30,7 @@ import {
   normalizeActivityType,
   normalizeLifecycleStatus,
 } from './utils/taskScoring';
+import { appendPressureHistoryRecord, createPressureHistoryRecord, normalizePressureHistory, PRESSURE_HISTORY_STORAGE_KEY } from './utils/pressureHistory';
 
 const STORAGE_KEY = 'visualized-deadline.tasks';
 const BASELINE_PRESSURE_STORAGE_KEY = 'visualized-deadline.baselinePressure';
@@ -175,6 +177,7 @@ function App() {
   const [onboardingComplete, setOnboardingComplete] = useLocalStorage<boolean>(ONBOARDING_STORAGE_KEY, readInitialOnboardingComplete());
   const legacyReferencePressure = readBaselinePressure() ?? 35;
   const [pressureCalibration, setPressureCalibration] = useLocalStorage<PressureCalibrationSnapshot>(PRESSURE_CALIBRATION_STORAGE_KEY, normalizePressureCalibration(null, legacyReferencePressure));
+  const [pressureHistory, setPressureHistory] = useLocalStorage<PressureHistoryRecord[]>(PRESSURE_HISTORY_STORAGE_KEY, []);
   const [activeModule, setActiveModule] = useState<LifeOSModule>('vd');
   const [isRecalibrationOpen, setIsRecalibrationOpen] = useState(false);
   const [recalibrationPressure, setRecalibrationPressure] = useState(legacyReferencePressure);
@@ -189,6 +192,7 @@ function App() {
   const normalizedAchievements = useMemo(() => normalizeStoredAchievements(achievements), [achievements]);
   const normalizedProfile = useMemo(() => normalizeProfile(profile), [profile]);
   const normalizedPressureCalibration = useMemo(() => normalizePressureCalibration(pressureCalibration, legacyReferencePressure), [legacyReferencePressure, pressureCalibration]);
+  const normalizedPressureHistory = useMemo(() => normalizePressureHistory(pressureHistory), [pressureHistory]);
   const activeTasks = useMemo(() => normalizedTasks.filter((task) => task.lifecycleStatus === 'active'), [normalizedTasks]);
   const recommendedTasks = useMemo(() => normalizedTasks.filter((task) => task.lifecycleStatus === 'active').sort((a, b) => getTaskScore(b) - getTaskScore(a)).slice(0, 3), [normalizedTasks]);
   const pressure = useMemo<PressureBreakdown>(() => calculatePressureIndex(normalizedTasks, normalizedPressureCalibration, legacyReferencePressure), [normalizedTasks, normalizedPressureCalibration, legacyReferencePressure]);
@@ -218,10 +222,28 @@ function App() {
   }, [normalizedPressureCalibration, pressureCalibration, setPressureCalibration]);
 
   useEffect(() => {
+    if (JSON.stringify(pressureHistory) !== JSON.stringify(normalizedPressureHistory)) {
+      setPressureHistory(normalizedPressureHistory);
+    }
+  }, [normalizedPressureHistory, pressureHistory, setPressureHistory]);
+
+  useEffect(() => {
     if (!toastAchievement) return;
     const timeoutId = window.setTimeout(() => setToastAchievement(undefined), 4200);
     return () => window.clearTimeout(timeoutId);
   }, [toastAchievement]);
+
+
+  function recordPressureSnapshot(eventType: PressureHistoryEventType, sourceTasks = normalizedTasks, note?: string, calibration = normalizedPressureCalibration) {
+    const snapshotPressure = calculatePressureIndex(sourceTasks, calibration, legacyReferencePressure);
+    const record = createPressureHistoryRecord(snapshotPressure, sourceTasks, eventType, note);
+    setPressureHistory((records) => appendPressureHistoryRecord(records, record));
+  }
+
+  useEffect(() => {
+    if (!onboardingComplete) return;
+    recordPressureSnapshot('auto');
+  }, [onboardingComplete, pressure.rawPressure, pressure.currentTaskLoad, pressure.recoveryRelief, activeTasks.length]);
 
   function unlockAchievement(id: string) {
     setAchievements((currentAchievements) => {
@@ -265,6 +287,7 @@ function App() {
     const activeCount = sourceTasks.filter((task) => task.lifecycleStatus === 'active').length;
     const calibration = createPressureCalibration(referencePressure, activeLoad, activeCount);
     setPressureCalibration(calibration);
+    recordPressureSnapshot('recalibration', sourceTasks, '压力映射系数已重新校准。', calibration);
     // Keep the legacy key in sync only for older app versions; it is no longer an additive base layer.
     window.localStorage.setItem(BASELINE_PRESSURE_STORAGE_KEY, JSON.stringify(calibration.referencePressure));
   }
@@ -281,8 +304,10 @@ function App() {
 
   function completeOnboarding(importedTasks: TaskInput[], _referencePressure: number, calibration: PressureCalibrationSnapshot) {
     const createdTasks = importedTasks.map((task) => createTask(task));
-    setTasks((currentTasks) => [...createdTasks, ...currentTasks]);
+    const nextTasks = [...createdTasks, ...normalizedTasks];
+    setTasks(nextTasks);
     setPressureCalibration(calibration);
+    recordPressureSnapshot('recalibration', nextTasks, '完成初始压力校准。', calibration);
     window.localStorage.setItem(BASELINE_PRESSURE_STORAGE_KEY, JSON.stringify(calibration.referencePressure));
     setOnboardingComplete(true);
   }
@@ -297,45 +322,52 @@ function App() {
     const now = new Date().toISOString();
 
     if (editingTask) {
-      setTasks((currentTasks) =>
-        currentTasks.map((task) => {
-          if (task.id !== editingTask.id) return task;
-          const lifecycleChanged = task.lifecycleStatus !== normalizedInput.lifecycleStatus;
-          return {
-            ...task,
-            ...normalizedInput,
-            completedAt: normalizedInput.lifecycleStatus === 'completed' ? task.completedAt ?? now : lifecycleChanged ? undefined : task.completedAt,
-            abandonedAt: normalizedInput.lifecycleStatus === 'abandoned' ? task.abandonedAt ?? now : lifecycleChanged ? undefined : task.abandonedAt,
-            updatedAt: now,
-          };
-        }),
-      );
+      const nextTasks = normalizedTasks.map((task) => {
+        if (task.id !== editingTask.id) return task;
+        const lifecycleChanged = task.lifecycleStatus !== normalizedInput.lifecycleStatus;
+        return {
+          ...task,
+          ...normalizedInput,
+          completedAt: normalizedInput.lifecycleStatus === 'completed' ? task.completedAt ?? now : lifecycleChanged ? undefined : task.completedAt,
+          abandonedAt: normalizedInput.lifecycleStatus === 'abandoned' ? task.abandonedAt ?? now : lifecycleChanged ? undefined : task.abandonedAt,
+          updatedAt: now,
+        };
+      });
+      setTasks(nextTasks);
+      if (editingTask.lifecycleStatus !== normalizedInput.lifecycleStatus && normalizedInput.lifecycleStatus === 'completed') recordPressureSnapshot('task_completed', nextTasks, `完成任务：${normalizedInput.title}`);
+      if (editingTask.lifecycleStatus !== normalizedInput.lifecycleStatus && normalizedInput.lifecycleStatus === 'abandoned') recordPressureSnapshot('task_abandoned', nextTasks, `放弃任务：${normalizedInput.title}`);
     } else {
-      setTasks((currentTasks) => [createTask(normalizedInput), ...currentTasks]);
+      const newTask = createTask(normalizedInput);
+      const nextTasks = [newTask, ...normalizedTasks];
+      setTasks(nextTasks);
+      recordPressureSnapshot('task_created', nextTasks, `新建任务：${newTask.title}`);
     }
     closeForm();
   }
 
   function archiveTask(task: Task, lifecycleStatus: Exclude<LifecycleStatus, 'active'>) {
     const now = new Date().toISOString();
-    setTasks((currentTasks) =>
-      currentTasks.map((item) =>
-        item.id === task.id
-          ? {
-              ...item,
-              lifecycleStatus,
-              progress: lifecycleStatus === 'completed' ? 100 : item.progress,
-              completedAt: lifecycleStatus === 'completed' ? now : item.completedAt,
-              abandonedAt: lifecycleStatus === 'abandoned' ? now : item.abandonedAt,
-              updatedAt: now,
-            }
-          : item,
-      ),
+    const nextTasks = normalizedTasks.map((item) =>
+      item.id === task.id
+        ? {
+            ...item,
+            lifecycleStatus,
+            progress: lifecycleStatus === 'completed' ? 100 : item.progress,
+            completedAt: lifecycleStatus === 'completed' ? now : item.completedAt,
+            abandonedAt: lifecycleStatus === 'abandoned' ? now : item.abandonedAt,
+            updatedAt: now,
+          }
+        : item,
     );
+    setTasks(nextTasks);
+    recordPressureSnapshot(lifecycleStatus === 'completed' ? 'task_completed' : 'task_abandoned', nextTasks, `${lifecycleStatus === 'completed' ? '完成' : '放弃'}任务：${task.title}`);
   }
 
   function deleteTask(taskId: string) {
-    setTasks((currentTasks) => currentTasks.filter((task) => task.id !== taskId));
+    const deletedTask = normalizedTasks.find((task) => task.id === taskId);
+    const nextTasks = normalizedTasks.filter((task) => task.id !== taskId);
+    setTasks(nextTasks);
+    recordPressureSnapshot('manual', nextTasks, deletedTask ? `删除任务：${deletedTask.title}` : '删除任务');
   }
 
 
@@ -363,7 +395,7 @@ function App() {
     <>
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Visualized Deadline · v0.6.1</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Visualized Deadline · v0.6.2</p>
           <h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-950 md:text-5xl">可视化 Deadline，非传统 Todo List。</h1>
           <p className="mt-3 max-w-2xl text-slate-600">系统记录任务、时间压力与人生节奏；你只需要观察状态，选择下一步。</p>
         </div>
@@ -373,6 +405,7 @@ function App() {
       </header>
 
       <PressureCard pressure={pressure} onRecalibrate={openRecalibration} />
+      <PressureTimeline records={normalizedPressureHistory} />
       <RecommendationCard tasks={recommendedTasks} />
 
       {isFormOpen ? (
