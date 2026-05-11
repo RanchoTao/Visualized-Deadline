@@ -4,20 +4,20 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import type { LifeMapNodeData } from '../types/task';
 
 const LIFE_MAP_NODES_KEY = 'visualized-deadline.lifeMap.nodes';
-const LIFE_CENTER = { x: 520, y: 360 };
+const LIFE_CENTER = { x: 620, y: 430 };
 const ORBIT_STEP = 120;
 const NODE_GAP = 170;
 
 type LifeNode = Node<LifeMapNodeData>;
 
 const domainSeeds: LifeMapNodeData[] = [
-  { title: '学术研究', description: '课程、论文、实验与长期问题。', color: '#bfdbfe' },
-  { title: '学习工作', description: '技能、项目与职业推进。', color: '#ddd6fe' },
+  { title: '学习', description: '课程、技能与日常学习节奏。', color: '#bfdbfe' },
+  { title: '研究', description: '长期问题、论文与实验推进。', color: '#ddd6fe' },
+  { title: '健身', description: '训练、力量与身体状态。', color: '#bbf7d0' },
   { title: '资产管理', description: '收入、支出、储蓄与风险边界。', color: '#fde68a' },
-  { title: '社会交流', description: '关系维护与社交能量。', color: '#fecdd3' },
-  { title: '内容创作', description: '表达、作品与内容资产。', color: '#bae6fd' },
-  { title: '个人思考', description: '价值观、复盘与自我观察。', color: '#e2e8f0' },
-  { title: '身体健康', description: '睡眠、饮食、训练与恢复。', color: '#bbf7d0' },
+  { title: '社交', description: '关系维护与社交能量。', color: '#fecdd3' },
+  { title: '内容', description: '表达、作品与内容资产。', color: '#bae6fd' },
+  { title: '健康', description: '睡眠、饮食与基础健康信号。', color: '#d9f99d' },
 ];
 
 function orbitPoint(index: number, radius = 260): LifeNode['position'] {
@@ -121,8 +121,8 @@ export function LifeMapPage() {
         <button type="button" onClick={addNode} className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-slate-700">添加节点</button>
       </div>
 
-      <div className="h-[78vh] min-h-[720px] overflow-auto rounded-[2rem] border border-white/70 bg-white/75 p-3 shadow-xl shadow-slate-200/60 backdrop-blur">
-        <div className="h-[1100px] w-[1400px]"><ReactFlow nodes={normalizedNodes} edges={edges} onNodesChange={handleNodesChange} onNodeClick={(_, node) => setEditingNode(node)} fitView className="rounded-[1.5rem] bg-slate-50/80"><Background /><Controls /></ReactFlow></div>
+      <div className="h-[78vh] min-h-[680px] overflow-hidden rounded-[2rem] border border-white/70 bg-white/75 p-3 shadow-xl shadow-slate-200/60 backdrop-blur">
+        <ReactFlow nodes={normalizedNodes} edges={edges} onNodesChange={handleNodesChange} onNodeClick={(_, node) => setEditingNode(node)} fitView className="rounded-[1.5rem] bg-slate-50/80"><Background /><Controls /></ReactFlow>
       </div>
 
       {editingNode ? (

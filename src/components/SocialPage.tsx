@@ -4,7 +4,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import type { SocialPersonData } from '../types/task';
 
 const SOCIAL_NODES_KEY = 'visualized-deadline.social.nodes';
-const CENTER = { x: 560, y: 420 };
+const CENTER = { x: 680, y: 560 };
 const DEFAULT_PERSON_COLOR = '#d8e2dc';
 const CENTER_NODE_COLOR = '#cbd5e1';
 const NODE_GAP = 170;
@@ -20,10 +20,10 @@ function clampScore(value: unknown, fallback = 50): number {
 }
 
 function orbitRadius(favorability: number): number {
-  if (favorability >= 90) return 150;
-  if (favorability >= 70) return 260;
-  if (favorability >= 40) return 390;
-  return 530;
+  if (favorability >= 80) return 140;
+  if (favorability >= 60) return 250;
+  if (favorability >= 40) return 360;
+  return 470;
 }
 
 function orbitPosition(node: SocialNode, index: number, siblings: SocialNode[]): SocialNode['position'] {
@@ -135,11 +135,10 @@ export function SocialPage() {
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4 rounded-[2rem] border border-white/70 bg-white/75 p-6 shadow-xl shadow-slate-200/60 backdrop-blur"><div><p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">关系宇宙</p><h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-950">社交关系场</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">亲近的人靠近中心，疏远的人停在外圈；关系线保持轻盈可读。</p></div><button type="button" onClick={addPerson} className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-slate-700">添加联系人</button></div>
-      <div className="relative h-[78vh] min-h-[720px] overflow-auto rounded-[2rem] border border-white/70 bg-white/75 p-3 shadow-xl shadow-slate-200/60 backdrop-blur">
-        <div className="pointer-events-none absolute left-[575px] top-[435px] z-0 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-slate-300/60" /><div className="pointer-events-none absolute left-[575px] top-[435px] z-0 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-slate-200/80" /><div className="pointer-events-none absolute left-[575px] top-[435px] z-0 h-[780px] w-[780px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-slate-200/70" />
+      <div className="flex flex-wrap items-end justify-between gap-4 rounded-[2rem] border border-white/70 bg-white/75 p-6 shadow-xl shadow-slate-200/60 backdrop-blur"><div><p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">关系宇宙</p><h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-950">社交关系</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">以“我”为中心，按主观好感度观察关系距离。</p></div><button type="button" onClick={addPerson} className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-slate-700">添加联系人</button></div>
+      <div className="relative h-[78vh] min-h-[680px] overflow-hidden rounded-[2rem] border border-white/70 bg-white/75 p-3 shadow-xl shadow-slate-200/60 backdrop-blur">
         {!hasContacts ? <div className="pointer-events-none absolute inset-x-0 top-24 z-10 text-center text-sm font-medium text-slate-400">添加对你重要的人，构建你的关系地图。</div> : null}
-        <div className="h-[1200px] w-[1500px]"><ReactFlow nodes={graphNodes} edges={relationshipEdges} onNodesChange={handleNodesChange} onNodeClick={(_, node) => setEditingNode(node)} fitView className="rounded-[1.5rem] bg-slate-50/80"><Background /><Controls /></ReactFlow></div>
+        <ReactFlow nodes={graphNodes} edges={relationshipEdges} onNodesChange={handleNodesChange} onNodeClick={(_, node) => setEditingNode(node)} fitView className="rounded-[1.5rem] bg-slate-50/80"><Background /><Controls /></ReactFlow>
       </div>
       {editingNode ? <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/15 px-4 backdrop-blur-sm"><section className="max-h-[calc(100vh-3rem)] w-full max-w-2xl overflow-y-auto rounded-[2rem] border border-white/80 bg-white/95 p-5 shadow-2xl shadow-slate-300/60"><h2 className="text-2xl font-semibold text-slate-950">{editingNode.id === 'me' ? '编辑中心节点' : '编辑关系'}</h2><div className="mt-4 grid gap-4 md:grid-cols-2">
         <label className="text-sm font-medium text-slate-600">{editingNode.id === 'me' ? '昵称' : '姓名'}<input value={editingNode.data?.name ?? ''} onChange={(event) => updateEditingData('name', event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3" /></label>
