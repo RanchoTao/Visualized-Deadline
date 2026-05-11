@@ -86,6 +86,8 @@ export interface UserProfile {
 export interface LifeMapNodeData {
   title: string;
   description: string;
+  currentStage?: string;
+  notes?: string;
   color?: string;
 }
 
@@ -96,5 +98,7 @@ export interface SocialPersonData {
   familiarity: string;
   lastInteractionDate: string;
   notes: string;
+  bio?: string;
+  currentSocialState?: string;
   color?: string;
 }

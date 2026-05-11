@@ -52,6 +52,14 @@ export function PressureTimeline({ records }: PressureTimelineProps) {
   const visibleMarkers = recentRecords
     .filter((record) => record.eventType && record.eventType !== 'auto')
     .slice(-6);
+  const now = new Date();
+  const spanMs = recentRecords.length > 1 ? now.getTime() - new Date(recentRecords[0].timestamp).getTime() : 0;
+  const granularityLabels = [
+    { label: '最近分钟', active: spanMs <= 60 * 60 * 1000 },
+    { label: '今天', active: spanMs <= 24 * 60 * 60 * 1000 },
+    { label: '近 7 天', active: spanMs <= 7 * 24 * 60 * 60 * 1000 },
+    { label: '近 30 天', active: spanMs <= 30 * 24 * 60 * 60 * 1000 },
+  ];
 
   return (
     <section className="rounded-[2rem] border border-white/70 bg-white/75 p-5 shadow-xl shadow-slate-200/60 backdrop-blur">
@@ -61,7 +69,7 @@ export function PressureTimeline({ records }: PressureTimelineProps) {
           <h2 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">个人压力时间线</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">记录压力随时间的变化，帮助你观察节奏，而不是只看此刻。</p>
         </div>
-        <span className="rounded-full bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500 ring-1 ring-white/80">本地记录 · localStorage</span>
+        <div className="flex flex-wrap gap-2">{granularityLabels.map((item) => <span key={item.label} className={`rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ${item.active ? 'bg-slate-900 text-white ring-slate-900' : 'bg-slate-50 text-slate-400 ring-white/80'}`}>{item.label}</span>)}</div>
       </div>
 
       {recentRecords.length < 2 ? (

@@ -8,7 +8,6 @@ import { LogPage } from './components/LogPage';
 import { OnboardingFlow } from './components/OnboardingFlow';
 import { ProfilePage } from './components/ProfilePage';
 import { PressureCard } from './components/PressureCard';
-import { PressureTimeline } from './components/PressureTimeline';
 import { PriorityMap } from './components/PriorityMap';
 import { RecommendationCard } from './components/RecommendationCard';
 import { TaskForm } from './components/TaskForm';
@@ -404,8 +403,7 @@ function App() {
         </button>
       </header>
 
-      <PressureCard pressure={pressure} onRecalibrate={openRecalibration} />
-      <PressureTimeline records={normalizedPressureHistory} />
+      <PressureCard pressure={pressure} history={normalizedPressureHistory} onRecalibrate={openRecalibration} />
       <RecommendationCard tasks={recommendedTasks} />
 
       {isFormOpen ? (
@@ -413,7 +411,7 @@ function App() {
           <section className="max-h-[calc(100vh-3rem)] w-full max-w-5xl overflow-y-auto rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-2xl shadow-slate-300/60">
             <div className="mb-4 flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Project Sheet</p>
+                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">项目表单</p>
                 <h2 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">{editingTask ? '编辑项目' : '新建项目'}</h2>
               </div>
               <button type="button" onClick={closeForm} className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200">

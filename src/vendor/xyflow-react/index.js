@@ -26,6 +26,7 @@ function resolveNodePosition(event, bounds) {
 export function ReactFlow({ nodes = [], edges = [], onNodesChange, onNodeClick, className = '', fitView, children }) {
   const containerRef = useRef(null);
   const [draggingId, setDraggingId] = useState(null);
+  const dragStateRef = useRef({ id: null, startX: 0, startY: 0, moved: false });
   const nodeById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
 
   function updateNodePosition(event, nodeId) {
@@ -57,13 +58,26 @@ export function ReactFlow({ nodes = [], edges = [], onNodesChange, onNodeClick, 
     nodes.map((node) => React.createElement('button', {
       key: node.id,
       type: 'button',
-      onClick: (event) => onNodeClick?.(event, node),
+      onClick: (event) => {
+        if (dragStateRef.current.id === node.id && dragStateRef.current.moved) {
+          event.preventDefault();
+          event.stopPropagation();
+          dragStateRef.current = { id: null, startX: 0, startY: 0, moved: false };
+          return;
+        }
+        onNodeClick?.(event, node);
+      },
       onPointerDown: (event) => {
         event.currentTarget.setPointerCapture?.(event.pointerId);
+        dragStateRef.current = { id: node.id, startX: event.clientX, startY: event.clientY, moved: false };
         setDraggingId(node.id);
       },
       onPointerMove: (event) => {
-        if (draggingId === node.id) updateNodePosition(event, node.id);
+        if (draggingId === node.id) {
+          const distance = Math.hypot(event.clientX - dragStateRef.current.startX, event.clientY - dragStateRef.current.startY);
+          if (distance > 6) dragStateRef.current.moved = true;
+          updateNodePosition(event, node.id);
+        }
       },
       onPointerUp: () => setDraggingId(null),
       className: `absolute min-w-36 cursor-grab rounded-3xl border bg-white/90 px-4 py-3 text-center shadow-xl shadow-slate-200/60 ring-1 ring-white/80 backdrop-blur active:cursor-grabbing ${node.id === 'me' ? 'border-slate-300 bg-slate-950 text-white' : 'border-white/80 text-slate-950'}`,
