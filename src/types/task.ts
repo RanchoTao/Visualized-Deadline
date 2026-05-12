@@ -70,7 +70,7 @@ export interface Achievement {
   unlockedAt: string;
 }
 
-export type LifeOSModule = 'life-map' | 'vd' | 'social' | 'profile' | 'log';
+export type LifeOSModule = 'home' | 'map' | 'social' | 'log' | 'me';
 
 export interface UserProfile {
   nickname: string;
@@ -100,6 +100,14 @@ export interface SocialPersonData {
   notes: string;
   bio?: string;
   currentSocialState?: string;
+  trust?: string;
+  interactionFrequency?: string;
+  emotionalCloseness?: string;
+  influenceWeight?: string;
+  roleCategory?: string;
+  avatarInitial?: string;
+  cluster?: string;
+  manualPosition?: boolean;
   angle?: number;
   color?: string;
 }

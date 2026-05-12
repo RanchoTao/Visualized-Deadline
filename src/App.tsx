@@ -2,15 +2,13 @@ import { type ReactElement, useEffect, useMemo, useState } from 'react';
 import { AchievementToast } from './components/AchievementToast';
 import { AchievementsPanel } from './components/AchievementsPanel';
 import { ActivityLog } from './components/ActivityLog';
-import { DataSafetyPanel } from './components/DataSafetyPanel';
+import { HomePage } from './components/HomePage';
 import { LifeMapPage } from './components/LifeMapPage';
 import { LifeOSNav } from './components/LifeOSNav';
 import { LogPage } from './components/LogPage';
 import { OnboardingFlow } from './components/OnboardingFlow';
 import { ProfilePage } from './components/ProfilePage';
-import { PressureCard } from './components/PressureCard';
 import { PriorityMap } from './components/PriorityMap';
-import { RecommendationCard } from './components/RecommendationCard';
 import { TaskForm } from './components/TaskForm';
 import { SocialPage } from './components/SocialPage';
 import { TaskList } from './components/TaskList';
@@ -171,7 +169,7 @@ function App() {
   const legacyReferencePressure = readBaselinePressure() ?? 35;
   const [pressureCalibration, setPressureCalibration] = useLocalStorage<PressureCalibrationSnapshot>(storageKeys.pressureCalibration, normalizePressureCalibration(null, legacyReferencePressure));
   const [pressureHistory, setPressureHistory] = useLocalStorage<PressureHistoryRecord[]>(storageKeys.pressureHistory, []);
-  const [activeModule, setActiveModule] = useState<LifeOSModule>('vd');
+  const [activeModule, setActiveModule] = useState<LifeOSModule>('home');
   const [isRecalibrationOpen, setIsRecalibrationOpen] = useState(false);
   const [recalibrationPressure, setRecalibrationPressure] = useState(legacyReferencePressure);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -384,39 +382,37 @@ function App() {
     setIsFormOpen(true);
   }
 
-  const vdModule = (
+
+  const taskFormOverlay = isFormOpen ? (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/15 px-4 py-6 backdrop-blur-sm">
+      <section className="max-h-[calc(100vh-3rem)] w-full max-w-5xl overflow-y-auto rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-2xl shadow-slate-300/60">
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">项目表单</p>
+            <h2 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">{editingTask ? '编辑项目' : '新建项目'}</h2>
+          </div>
+          <button type="button" onClick={closeForm} className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200">
+            关闭
+          </button>
+        </div>
+        <TaskForm task={editingTask} onCancel={closeForm} onSubmit={handleSubmit} />
+      </section>
+    </div>
+  ) : null;
+
+  const taskManagerModule = (
     <>
-      <header className="flex flex-wrap items-center justify-between gap-4">
+      <header className="flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-white/70 bg-white/75 p-6 shadow-xl shadow-slate-200/60 backdrop-blur">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Visualized Deadline · v0.7</p>
-          <h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-950 md:text-5xl">可视化 Deadline，非传统 Todo List。</h1>
-          <p className="mt-3 max-w-2xl text-slate-600">系统记录任务、时间压力与人生节奏；你只需要观察状态，选择下一步。</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Task Manager · v0.9 foundation</p>
+          <h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-950 md:text-5xl">任务系统</h1>
+          <p className="mt-3 max-w-2xl text-slate-600">完整任务地图、活动列表与长期归档。首页只保留日常控制台。</p>
         </div>
         <button onClick={() => setIsFormOpen(true)} className="rounded-full bg-slate-950 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 hover:bg-slate-700">
           添加项目
         </button>
       </header>
 
-      <DataSafetyPanel />
-      <PressureCard pressure={pressure} history={normalizedPressureHistory} onRecalibrate={openRecalibration} />
-      <RecommendationCard tasks={recommendedTasks} />
-
-      {isFormOpen ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/15 px-4 py-6 backdrop-blur-sm">
-          <section className="max-h-[calc(100vh-3rem)] w-full max-w-5xl overflow-y-auto rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-2xl shadow-slate-300/60">
-            <div className="mb-4 flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">项目表单</p>
-                <h2 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">{editingTask ? '编辑项目' : '新建项目'}</h2>
-              </div>
-              <button type="button" onClick={closeForm} className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200">
-                关闭
-              </button>
-            </div>
-            <TaskForm task={editingTask} onCancel={closeForm} onSubmit={handleSubmit} />
-          </section>
-        </div>
-      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <PriorityMap tasks={activeTasks} />
@@ -431,16 +427,17 @@ function App() {
   );
 
   const moduleContent: Record<LifeOSModule, ReactElement> = {
-    'life-map': <LifeMapPage />,
-    vd: vdModule,
+    home: <><HomePage pressure={pressure} pressureHistory={normalizedPressureHistory} recommendedTasks={recommendedTasks} activeTasks={activeTasks} tasks={normalizedTasks} onAddTask={() => setIsFormOpen(true)} onRecalibrate={openRecalibration} onDeleteTask={deleteTask} onReviewNoteChange={updateReviewNote} />{taskManagerModule}</>,
+    map: <LifeMapPage />,
     social: <SocialPage />,
-    profile: <ProfilePage profile={normalizedProfile} onProfileChange={setProfile} />,
     log: <LogPage tasks={normalizedTasks} onDelete={deleteTask} onReviewNoteChange={updateReviewNote} />,
+    me: <ProfilePage profile={normalizedProfile} onProfileChange={setProfile} />,
   };
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dbeafe,transparent_32%),radial-gradient(circle_at_top_right,#f8fafc,transparent_30%),linear-gradient(180deg,#f8fafc,#eef2f7)] px-4 py-8 text-slate-900 md:px-8">
       {!onboardingComplete ? <OnboardingFlow onComplete={completeOnboarding} /> : null}
+      {taskFormOverlay}
       {isRecalibrationOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/15 px-4 backdrop-blur-sm">
           <section className="w-full max-w-lg rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-2xl shadow-slate-300/60">
@@ -457,7 +454,7 @@ function App() {
       ) : null}
       <AchievementToast achievement={toastAchievement} />
 
-      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="mx-auto max-w-6xl space-y-5 md:space-y-6">
         <LifeOSNav activeModule={activeModule} onModuleChange={setActiveModule} />
         {moduleContent[activeModule]}
       </div>

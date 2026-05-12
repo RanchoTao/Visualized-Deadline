@@ -27,6 +27,7 @@ export interface ReactFlowProps<NodeType extends Node = Node, EdgeType extends E
   onNodeClick?: (event: MouseEvent, node: NodeType) => void;
   className?: string;
   fitView?: boolean;
+  selectedNodeId?: string;
   children?: ReactNode;
 }
 

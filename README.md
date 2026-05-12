@@ -2,15 +2,15 @@
 
 **可视化 Deadline，非传统 Todo List。**
 
-Visualized-Deadline（VD）现在保留 LifeOS Shell 的模块入口：它仍然负责可视化 Deadline、认知压力与生活节奏，同时为后续的人生地图、社交、个人主页和日志模块保留清晰入口。
+Visualized-Deadline（VD）现在以 LifeOS Shell 的信息架构运行：它负责可视化 Deadline、认知压力、生活地图、社交关系、日志与个人系统设置。
 
-## v0.6.1：LifeOS Interaction + Graph Foundations
+## v0.9：LifeOS Productization Foundation
 
-- 顶部导航：在不刷新页面的情况下切换「人生地图 / 任务管理器 / 社交 / 个人主页 / 日志」。
+- 顶部导航：在不刷新页面的情况下切换「首页 / 地图 / 社交 / 日志 / 我」。
 - VD 默认模块：保留压力指数、压力校准、优先级地图、活动列表、归档日志、成就和本地持久化。
 - 人生地图：使用本地可编辑节点图谱，以“我”为中心连接 Academic、Research、Fitness、Finance、Social、Content、Health 等生活领域。
 - 社交：使用本地可编辑的有向关系图谱，以“我”为中心连接联系人节点。
-- 个人主页：本地编辑 nickname、height、weight、identity、skills、longTermGoals、currentStage，并支持头像 data URL。
+- 我：本地编辑 nickname、height、weight、identity、skills、longTermGoals、currentStage，并集中放置数据安全、隐私与未来同步入口。
 - 日志：独立展示已完成 / 已放弃项目、时间戳和活动类型，同时 VD 内仍保留小日志预览。
 - 首次进入：先进行快速任务倾倒，再校准主观压力，最后补全任务信息。
 - 当前关注：最多展示 3 个推荐活动，帮助用户选择而不是替用户决定。
@@ -149,3 +149,14 @@ v0.7 将持久化逻辑集中到 `src/storage/`，业务组件不再直接调用
 ```text
 VD-backup-YYYY-MM-DD-HH-mm.json
 ```
+
+## v0.8-v0.9：Product Structure + Social Graph Reconstruction
+
+后续产品化基础已按 Web-first 方向整理：
+
+- 信息架构调整为「首页 / 地图 / 社交 / 日志 / 我」，其中「我」承担资料、系统状态、数据安全与未来隐私/同步入口。
+- 首页变为 daily control center：优先展示当前压力、推荐项目、状态摘要、快捷动作、最近日志与未来 AI 协同占位。
+- 社交图谱升级为多因素关系嵌入：好感度、熟悉度、信任、互动频率、最近互动、角色分类、情感亲近与影响权重都会参与距离、聚类和视觉分组。
+- 图谱节点改为更紧凑的圆角卡片，保留头像占位、姓名、角色信息，并修复中心节点对比度。
+- 图谱交互保持本地轻量：普通触控板滚动回到页面滚动，图谱缩放只通过 Ctrl/Cmd + 滚轮或显式按钮触发。
+- PWA 准备仅做基础：viewport/theme 元信息、移动优先间距、触控交互和本地优先隐私占位；暂不实现安装、后端、认证或云同步。

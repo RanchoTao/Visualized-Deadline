@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
-const NODE_WIDTH = 160;
-const NODE_HEIGHT = 72;
+const NODE_WIDTH = 132;
+const NODE_HEIGHT = 62;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2.2;
 const DRAG_THRESHOLD = 6;
@@ -10,6 +10,7 @@ function setDocumentDragging(isDragging) {
   if (typeof document === 'undefined') return;
   document.body.style.userSelect = isDragging ? 'none' : '';
   document.body.style.webkitUserSelect = isDragging ? 'none' : '';
+  document.body.style.cursor = isDragging ? 'grabbing' : '';
   if (isDragging) window.getSelection?.()?.removeAllRanges?.();
 }
 
@@ -31,7 +32,7 @@ export function Controls() {
   return React.createElement('div', {
     className: 'absolute bottom-4 left-4 select-none rounded-2xl bg-white/80 px-3 py-2 text-xs font-medium text-slate-500 shadow-sm ring-1 ring-white/80 backdrop-blur',
     style: { userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' },
-  }, 'Ctrl/⌘ + 滚轮缩放 · 拖动画布平移 · 拖动节点调整位置');
+  }, 'Ctrl/⌘ + 滚轮缩放 · 按钮缩放 · 拖动画布/节点');
 }
 
 function isReasonablePosition(position) {
@@ -61,7 +62,7 @@ function fitViewport(nodes, bounds) {
   };
 }
 
-export function ReactFlow({ nodes = [], edges = [], onNodesChange, onNodeClick, className = '', fitView, children }) {
+export function ReactFlow({ nodes = [], edges = [], onNodesChange, onNodeClick, className = '', fitView, selectedNodeId, children }) {
   const containerRef = useRef(null);
   const hasFitRef = useRef(false);
   const dragStateRef = useRef({ type: null, id: null, startX: 0, startY: 0, startViewport: null, startPosition: null, moved: false });
@@ -120,7 +121,7 @@ export function ReactFlow({ nodes = [], edges = [], onNodesChange, onNodeClick, 
     const wheelListener = (event) => handleWheel(event);
     container.addEventListener('wheel', wheelListener, { passive: false });
     return () => container.removeEventListener('wheel', wheelListener);
-  });
+  }, [viewport.zoom]);
 
   useEffect(() => () => setDocumentDragging(false), []);
 
@@ -168,8 +169,8 @@ export function ReactFlow({ nodes = [], edges = [], onNodesChange, onNodeClick, 
 
   return React.createElement('div', {
     ref: containerRef,
-    className: `relative h-full w-full overflow-hidden select-none touch-none ${panning ? 'cursor-grabbing' : 'cursor-grab'} ${className}`,
-    style: { userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none', overscrollBehavior: 'contain' },
+    className: `relative h-full w-full overflow-hidden select-none ${panning ? 'cursor-grabbing' : 'cursor-grab'} ${className}`,
+    style: { userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none', overscrollBehavior: 'contain', WebkitTapHighlightColor: 'transparent' },
     onPointerDown: startPan,
     onPointerMove: movePan,
     onPointerUp: endPan,
@@ -231,11 +232,14 @@ export function ReactFlow({ nodes = [], edges = [], onNodesChange, onNodeClick, 
         },
         onPointerUp: () => { setDocumentDragging(false); setDraggingId(null); },
         onPointerCancel: () => { setDocumentDragging(false); setDraggingId(null); },
-        className: `absolute w-40 cursor-grab select-none rounded-3xl border bg-white/95 px-4 py-3 text-center shadow-xl shadow-slate-200/60 ring-1 backdrop-blur active:cursor-grabbing ${node.id === 'me' ? 'border-slate-300 text-slate-950 ring-slate-200' : 'border-white/80 text-slate-950 ring-white/80'}`,
-        style: { left: node.position.x, top: node.position.y, backgroundColor: node.id === 'me' ? '#f8fafc' : undefined, borderColor: node.id === 'me' ? '#94a3b8' : node.data?.color ?? undefined, color: node.id === 'me' ? '#0f172a' : undefined, userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' },
+        className: `absolute flex w-[8.25rem] cursor-grab select-none items-center gap-2 rounded-2xl border bg-white/95 px-2.5 py-2 text-left shadow-lg shadow-slate-200/60 ring-1 backdrop-blur transition hover:-translate-y-0.5 hover:shadow-xl active:cursor-grabbing ${selectedNodeId === node.id ? 'ring-2 ring-slate-400' : ''} ${node.id === 'me' ? 'border-slate-500 text-white ring-slate-300' : 'border-white/80 text-slate-950 ring-white/80'}`,
+        style: { left: node.position.x, top: node.position.y, backgroundColor: node.id === 'me' ? '#1e293b' : undefined, borderColor: node.id === 'me' ? '#0f172a' : node.data?.color ?? undefined, color: node.id === 'me' ? '#f8fafc' : undefined, userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'none' },
       },
-        React.createElement('p', { className: 'truncate text-sm font-semibold', style: { color: node.id === 'me' ? '#0f172a' : '#020617' } }, node.data?.name || node.data?.label || node.data?.title || '未命名联系人'),
-        node.data?.relationshipType ? React.createElement('p', { className: 'mt-1 truncate text-xs', style: { color: '#64748b' } }, node.data.relationshipType) : node.data?.description ? React.createElement('p', { className: 'mt-1 truncate text-xs', style: { color: '#64748b' } }, node.data.description) : null,
+        React.createElement('span', { className: 'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-bold shadow-inner', style: { backgroundColor: node.id === 'me' ? '#f8fafc' : node.data?.color ?? '#e2e8f0', color: node.id === 'me' ? '#0f172a' : '#0f172a' } }, node.data?.avatarInitial || (node.data?.name || node.data?.label || node.data?.title || '未').slice(0, 1)),
+        React.createElement('span', { className: 'min-w-0 flex-1' },
+          React.createElement('span', { className: 'block truncate text-sm font-semibold', style: { color: node.id === 'me' ? '#f8fafc' : '#020617' } }, node.data?.name || node.data?.label || node.data?.title || '未命名联系人'),
+          node.data?.relationshipType ? React.createElement('span', { className: 'mt-0.5 block truncate text-[11px]', style: { color: node.id === 'me' ? '#cbd5e1' : '#64748b' } }, node.data.roleCategory || node.data.relationshipType) : node.data?.description ? React.createElement('span', { className: 'mt-0.5 block truncate text-[11px]', style: { color: '#64748b' } }, node.data.description) : null,
+        ),
       )),
     ),
   );
