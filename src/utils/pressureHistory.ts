@@ -1,7 +1,5 @@
 import type { PressureBreakdown, PressureHistoryEventType, PressureHistoryRecord, Task } from '../types/task';
 
-export const PRESSURE_HISTORY_STORAGE_KEY = 'visualized-deadline.pressureHistory';
-
 const AUTO_RECORD_WINDOW_MS = 30 * 60 * 1000;
 const EVENT_SETTLE_WINDOW_MS = 2 * 60 * 1000;
 const MAX_HISTORY_RECORDS = 500;

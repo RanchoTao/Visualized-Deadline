@@ -37,7 +37,7 @@ export function ProfilePage({ profile, onProfileChange }: ProfilePageProps) {
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Local Profile</p>
           <h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-950">个人主页</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">这些信息只保存在当前浏览器的 localStorage 中，用于之后连接 LifeOS 的本地上下文。</p>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">这些信息只保存在当前浏览器的 VD 存储层中，用于之后连接 LifeOS 的本地上下文。</p>
           <label className="mt-4 inline-flex cursor-pointer rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-700">
             选择头像
             <input type="file" accept="image/*" onChange={handleAvatarChange} className="sr-only" />

@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { applyNodeChanges, Background, Controls, ReactFlow, type Edge, type Node, type NodeChange } from '@xyflow/react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import { storageKeys } from '../storage';
 import type { LifeMapNodeData } from '../types/task';
 
-const LIFE_MAP_NODES_KEY = 'visualized-deadline.lifeMap.nodes';
-const LIFE_MAP_LAYOUT_VERSION_KEY = 'visualized-deadline.lifeMap.layoutVersion';
 const CURRENT_LIFE_MAP_LAYOUT_VERSION = 3;
 const LIFE_CENTER = { x: 620, y: 430 };
 const ORBIT_STEP = 120;
@@ -135,8 +134,8 @@ function getLifeMapData(node: LifeNode): LifeMapNodeData {
 }
 
 export function LifeMapPage() {
-  const [storedNodes, setStoredNodes] = useLocalStorage<LifeNode[]>(LIFE_MAP_NODES_KEY, createSeedNodes());
-  const [layoutVersion, setLayoutVersion] = useLocalStorage<number>(LIFE_MAP_LAYOUT_VERSION_KEY, 0);
+  const [storedNodes, setStoredNodes] = useLocalStorage<LifeNode[]>(storageKeys.lifeMapNodes, createSeedNodes());
+  const [layoutVersion, setLayoutVersion] = useLocalStorage<number>(storageKeys.lifeMapLayoutVersion, 0);
   const normalizedNodes = useMemo(() => normalizeNodes(storedNodes, layoutVersion < CURRENT_LIFE_MAP_LAYOUT_VERSION), [layoutVersion, storedNodes]);
   const edges = useMemo(() => createEdges(normalizedNodes), [normalizedNodes]);
   const [editingNode, setEditingNode] = useState<LifeNode | undefined>();

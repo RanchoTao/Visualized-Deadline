@@ -2,6 +2,7 @@ import { type ReactElement, useEffect, useMemo, useState } from 'react';
 import { AchievementToast } from './components/AchievementToast';
 import { AchievementsPanel } from './components/AchievementsPanel';
 import { ActivityLog } from './components/ActivityLog';
+import { DataSafetyPanel } from './components/DataSafetyPanel';
 import { LifeMapPage } from './components/LifeMapPage';
 import { LifeOSNav } from './components/LifeOSNav';
 import { LogPage } from './components/LogPage';
@@ -29,14 +30,8 @@ import {
   normalizeActivityType,
   normalizeLifecycleStatus,
 } from './utils/taskScoring';
-import { appendPressureHistoryRecord, createPressureHistoryRecord, normalizePressureHistory, PRESSURE_HISTORY_STORAGE_KEY } from './utils/pressureHistory';
-
-const STORAGE_KEY = 'visualized-deadline.tasks';
-const BASELINE_PRESSURE_STORAGE_KEY = 'visualized-deadline.baselinePressure';
-const ACHIEVEMENTS_STORAGE_KEY = 'visualized-deadline.achievements';
-const PROFILE_STORAGE_KEY = 'visualized-deadline.profile';
-const ONBOARDING_STORAGE_KEY = 'visualized-deadline.onboardingComplete';
-const PRESSURE_CALIBRATION_STORAGE_KEY = 'visualized-deadline.pressureCalibration';
+import { appendPressureHistoryRecord, createPressureHistoryRecord, normalizePressureHistory } from './utils/pressureHistory';
+import { hasValue, loadValue, savePressure, storageKeys } from './storage';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -60,8 +55,8 @@ type LegacyTask = Partial<Omit<Task, 'schemaVersion' | 'activityType' | 'lifecyc
 
 function readBaselinePressure(): number | null {
   try {
-    const storedPressure = window.localStorage.getItem(BASELINE_PRESSURE_STORAGE_KEY);
-    return storedPressure === null ? null : clampPressure(JSON.parse(storedPressure));
+    const storedPressure = loadValue<number | null>(storageKeys.baselinePressure, null);
+    return storedPressure === null ? null : clampPressure(storedPressure);
   } catch {
     return null;
   }
@@ -69,12 +64,11 @@ function readBaselinePressure(): number | null {
 
 function readInitialOnboardingComplete(): boolean {
   try {
-    const storedFlag = window.localStorage.getItem(ONBOARDING_STORAGE_KEY);
-    if (storedFlag !== null) return JSON.parse(storedFlag) === true;
+    if (hasValue(storageKeys.onboardingComplete)) return loadValue<boolean>(storageKeys.onboardingComplete, false) === true;
 
     // Existing users may have tasks or a baseline before onboardingComplete existed.
     // Treat that as already onboarded so migration never blocks their current data.
-    return window.localStorage.getItem(STORAGE_KEY) !== null || window.localStorage.getItem(BASELINE_PRESSURE_STORAGE_KEY) !== null;
+    return hasValue(storageKeys.tasks) || hasValue(storageKeys.baselinePressure);
   } catch {
     return false;
   }
@@ -170,13 +164,13 @@ function createAchievement(id: string): Achievement | undefined {
 }
 
 function App() {
-  const [tasks, setTasks] = useLocalStorage<Task[]>(STORAGE_KEY, []);
-  const [achievements, setAchievements] = useLocalStorage<Achievement[]>(ACHIEVEMENTS_STORAGE_KEY, []);
-  const [profile, setProfile] = useLocalStorage<UserProfile>(PROFILE_STORAGE_KEY, defaultProfile);
-  const [onboardingComplete, setOnboardingComplete] = useLocalStorage<boolean>(ONBOARDING_STORAGE_KEY, readInitialOnboardingComplete());
+  const [tasks, setTasks] = useLocalStorage<Task[]>(storageKeys.tasks, []);
+  const [achievements, setAchievements] = useLocalStorage<Achievement[]>(storageKeys.achievements, []);
+  const [profile, setProfile] = useLocalStorage<UserProfile>(storageKeys.profile, defaultProfile);
+  const [onboardingComplete, setOnboardingComplete] = useLocalStorage<boolean>(storageKeys.onboardingComplete, readInitialOnboardingComplete());
   const legacyReferencePressure = readBaselinePressure() ?? 35;
-  const [pressureCalibration, setPressureCalibration] = useLocalStorage<PressureCalibrationSnapshot>(PRESSURE_CALIBRATION_STORAGE_KEY, normalizePressureCalibration(null, legacyReferencePressure));
-  const [pressureHistory, setPressureHistory] = useLocalStorage<PressureHistoryRecord[]>(PRESSURE_HISTORY_STORAGE_KEY, []);
+  const [pressureCalibration, setPressureCalibration] = useLocalStorage<PressureCalibrationSnapshot>(storageKeys.pressureCalibration, normalizePressureCalibration(null, legacyReferencePressure));
+  const [pressureHistory, setPressureHistory] = useLocalStorage<PressureHistoryRecord[]>(storageKeys.pressureHistory, []);
   const [activeModule, setActiveModule] = useState<LifeOSModule>('vd');
   const [isRecalibrationOpen, setIsRecalibrationOpen] = useState(false);
   const [recalibrationPressure, setRecalibrationPressure] = useState(legacyReferencePressure);
@@ -287,8 +281,8 @@ function App() {
     const calibration = createPressureCalibration(referencePressure, activeLoad, activeCount);
     setPressureCalibration(calibration);
     recordPressureSnapshot('recalibration', sourceTasks, '压力映射系数已重新校准。', calibration);
-    // Keep the legacy key in sync only for older app versions; it is no longer an additive base layer.
-    window.localStorage.setItem(BASELINE_PRESSURE_STORAGE_KEY, JSON.stringify(calibration.referencePressure));
+    // Keep the legacy pressure value available through the centralized storage layer.
+    savePressure({ baselinePressure: calibration.referencePressure });
   }
 
   function openRecalibration() {
@@ -307,7 +301,7 @@ function App() {
     setTasks(nextTasks);
     setPressureCalibration(calibration);
     recordPressureSnapshot('recalibration', nextTasks, '完成初始压力校准。', calibration);
-    window.localStorage.setItem(BASELINE_PRESSURE_STORAGE_KEY, JSON.stringify(calibration.referencePressure));
+    savePressure({ baselinePressure: calibration.referencePressure });
     setOnboardingComplete(true);
   }
 
@@ -394,7 +388,7 @@ function App() {
     <>
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Visualized Deadline · v0.6.2</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Visualized Deadline · v0.7</p>
           <h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-950 md:text-5xl">可视化 Deadline，非传统 Todo List。</h1>
           <p className="mt-3 max-w-2xl text-slate-600">系统记录任务、时间压力与人生节奏；你只需要观察状态，选择下一步。</p>
         </div>
@@ -403,6 +397,7 @@ function App() {
         </button>
       </header>
 
+      <DataSafetyPanel />
       <PressureCard pressure={pressure} history={normalizedPressureHistory} onRecalibrate={openRecalibration} />
       <RecommendationCard tasks={recommendedTasks} />
 

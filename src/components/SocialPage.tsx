@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { applyNodeChanges, Background, Controls, ReactFlow, type Edge, type Node, type NodeChange } from '@xyflow/react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import { storageKeys } from '../storage';
 import type { SocialPersonData } from '../types/task';
 
-const SOCIAL_NODES_KEY = 'visualized-deadline.social.nodes';
-const SOCIAL_LAYOUT_VERSION_KEY = 'visualized-deadline.social.layoutVersion';
 const CURRENT_SOCIAL_LAYOUT_VERSION = 4;
 const CENTER = { x: 680, y: 560 };
 const MIN_RADIUS = 160;
@@ -124,8 +123,8 @@ function buildRelationshipEdges(nodes: SocialNode[]): Edge<{ familiarity: number
 }
 
 export function SocialPage() {
-  const [storedNodes, setStoredNodes] = useLocalStorage<SocialNode[]>(SOCIAL_NODES_KEY, seedNodes());
-  const [layoutVersion, setLayoutVersion] = useLocalStorage<number>(SOCIAL_LAYOUT_VERSION_KEY, 0);
+  const [storedNodes, setStoredNodes] = useLocalStorage<SocialNode[]>(storageKeys.socialNodes, seedNodes());
+  const [layoutVersion, setLayoutVersion] = useLocalStorage<number>(storageKeys.socialLayoutVersion, 0);
   const normalizedNodes = useMemo(() => normalizeNodes(storedNodes), [storedNodes]);
   const relationshipEdges = useMemo(() => buildRelationshipEdges(normalizedNodes), [normalizedNodes]);
   const [editingNode, setEditingNode] = useState<SocialNode | undefined>();

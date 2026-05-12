@@ -133,3 +133,19 @@ Vite 的 `base` 已设置为 `/Visualized-Deadline/`，适配仓库 Pages 地址
 - 如果没有 `onboardingComplete`，但已有旧任务或压力基线，会视为已完成引导，避免阻塞旧数据。
 - 如果缺少 `pressureRatio` 或 `referenceTaskLoad`，会从旧压力值生成安全默认映射，避免除以 0。
 - 如果没有成就、头像、人生地图、社交图谱数据，会使用安全默认值初始化。
+
+## v0.7：Data Safety & Persistence Foundation
+
+v0.7 将持久化逻辑集中到 `src/storage/`，业务组件不再直接调用浏览器存储 API。当前实现提供：
+
+- 统一存储模块：`tasks`、`pressure`、`social`、`lifeMap`、`logs`、`settings`、`backup`、`schema`。
+- JSON 导出格式：`schemaVersion`、`exportedAt`、`app` 与 `data` 固定封装，便于未来 IndexedDB、SQLite、云同步或账号系统复用。
+- JSON 导入：校验 JSON、应用名和架构版本；不兼容版本会给出友好错误，不会导致应用崩溃。
+- 自动备份：重要状态写入后刷新 `vd_backup_latest`，并保留 `vd_backup_1` 到 `vd_backup_3` 的滚动快照。
+- 恢复安全：读取本地数据失败时会尝试从最近备份恢复，并通过“备份与恢复中心”提示用户。
+
+导出的文件名格式为：
+
+```text
+VD-backup-YYYY-MM-DD-HH-mm.json
+```
