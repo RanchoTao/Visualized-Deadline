@@ -1,4 +1,4 @@
-import { type ReactElement, useEffect, useMemo, useState } from 'react';
+import { type ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { AchievementToast } from './components/AchievementToast';
 import { HomePage } from './components/HomePage';
 import { LifeMapPage } from './components/LifeMapPage';
@@ -20,15 +20,18 @@ import {
   clampPressure,
   clampProgress,
   getTaskScore,
+  getUrgencyScore,
   normalizePressureCalibration,
   migrateLegacyImportance,
   normalizeActivityType,
   normalizeLifecycleStatus,
 } from './utils/taskScoring';
 import { appendPressureHistoryRecord, createPressureHistoryRecord, normalizePressureHistory } from './utils/pressureHistory';
-import { hasValue, loadValue, savePressure, storageKeys } from './storage';
+import { hasValue, loadValue, savePressure, saveValue, storageKeys } from './storage';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const WELCOME_BACK_GAP_MS = 2 * 60 * 60 * 1000;
+const WELCOME_BACK_ACTIVE_WRITE_MS = 60 * 1000;
 
 const defaultProfile: UserProfile = {
   nickname: '',
@@ -47,6 +50,25 @@ type LegacyTask = Partial<Omit<Task, 'schemaVersion' | 'activityType' | 'lifecyc
   status?: 'todo' | 'doing' | 'done';
   schemaVersion?: number;
 };
+
+type WelcomeBackMessage = {
+  greeting: string;
+  name: string;
+  detail: string;
+};
+
+function getTimeGreeting(date = new Date()): string {
+  const hour = date.getHours();
+  if (hour < 11) return '早上好';
+  if (hour < 14) return '中午好';
+  if (hour < 18) return '下午好';
+  return '晚上好';
+}
+
+function isDeadlinePressureTask(task: Task): boolean {
+  return getUrgencyScore(task.deadline) >= 30;
+}
+
 
 function readBaselinePressure(): number | null {
   try {
@@ -172,6 +194,8 @@ function App() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [toastAchievement, setToastAchievement] = useState<Achievement | undefined>();
+  const [welcomeBackMessage, setWelcomeBackMessage] = useState<WelcomeBackMessage | undefined>();
+  const hasCheckedWelcomeBack = useRef(false);
 
   const normalizedTasks = useMemo(() => {
     const storedTasks = Array.isArray(tasks) ? tasks : [];
@@ -183,6 +207,7 @@ function App() {
   const normalizedPressureHistory = useMemo(() => normalizePressureHistory(pressureHistory), [pressureHistory]);
   const activeTasks = useMemo(() => normalizedTasks.filter((task) => task.lifecycleStatus === 'active'), [normalizedTasks]);
   const recommendedTasks = useMemo(() => normalizedTasks.filter((task) => task.lifecycleStatus === 'active').sort((a, b) => getTaskScore(b) - getTaskScore(a)).slice(0, 3), [normalizedTasks]);
+  const deadlinePressureTasks = useMemo(() => activeTasks.filter(isDeadlinePressureTask).sort((a, b) => getTaskScore(b) - getTaskScore(a)), [activeTasks]);
   const pressure = useMemo<PressureBreakdown>(() => calculatePressureIndex(normalizedTasks, normalizedPressureCalibration, legacyReferencePressure), [normalizedTasks, normalizedPressureCalibration, legacyReferencePressure]);
 
   useEffect(() => {
@@ -220,6 +245,57 @@ function App() {
     const timeoutId = window.setTimeout(() => setToastAchievement(undefined), 4200);
     return () => window.clearTimeout(timeoutId);
   }, [toastAchievement]);
+
+  useEffect(() => {
+    if (hasCheckedWelcomeBack.current) return;
+    hasCheckedWelcomeBack.current = true;
+    const now = Date.now();
+    let previousActiveAt: number | null = null;
+    try {
+      previousActiveAt = loadValue<number | null>(storageKeys.welcomeLastActive, null);
+    } catch {
+      previousActiveAt = null;
+    }
+
+    const topUrgentTask = deadlinePressureTasks[0];
+    if (previousActiveAt && now - previousActiveAt > WELCOME_BACK_GAP_MS) {
+      const name = normalizedProfile.nickname.trim() || '用户';
+      setWelcomeBackMessage({
+        greeting: getTimeGreeting(new Date(now)),
+        name,
+        detail: topUrgentTask ? `当前有 ${deadlinePressureTasks.length} 个截止压力任务，最高优先级：${topUrgentTask.title}。` : '当前没有明显截止压力，可以推进长期任务或恢复精力。',
+      });
+    }
+
+    saveValue(storageKeys.welcomeLastActive, now);
+    let lastWriteAt = now;
+    const markActive = () => {
+      const current = Date.now();
+      if (current - lastWriteAt < WELCOME_BACK_ACTIVE_WRITE_MS) return;
+      lastWriteAt = current;
+      saveValue(storageKeys.welcomeLastActive, current);
+    };
+    const markVisible = () => {
+      if (document.visibilityState === 'visible') markActive();
+    };
+
+    window.addEventListener('focus', markActive);
+    window.addEventListener('pointerdown', markActive);
+    window.addEventListener('keydown', markActive);
+    document.addEventListener('visibilitychange', markVisible);
+    return () => {
+      window.removeEventListener('focus', markActive);
+      window.removeEventListener('pointerdown', markActive);
+      window.removeEventListener('keydown', markActive);
+      document.removeEventListener('visibilitychange', markVisible);
+    };
+  }, [deadlinePressureTasks, normalizedProfile.nickname]);
+
+  useEffect(() => {
+    if (!welcomeBackMessage) return;
+    const timeoutId = window.setTimeout(() => setWelcomeBackMessage(undefined), 5200);
+    return () => window.clearTimeout(timeoutId);
+  }, [welcomeBackMessage]);
 
 
   function recordPressureSnapshot(eventType: PressureHistoryEventType, sourceTasks = normalizedTasks, note?: string, calibration = normalizedPressureCalibration) {
@@ -440,6 +516,17 @@ function App() {
         </div>
       ) : null}
       <AchievementToast achievement={toastAchievement} />
+      {welcomeBackMessage ? (
+        <aside className="fixed bottom-6 right-4 z-30 w-[calc(100%-2rem)] max-w-sm rounded-[1.5rem] border border-white/80 bg-white/90 p-4 shadow-2xl shadow-slate-300/60 backdrop-blur md:right-6" role="status">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-950">{welcomeBackMessage.greeting}，{welcomeBackMessage.name}，欢迎回到 Visualized Deadline。</p>
+              <p className="mt-2 text-xs leading-5 text-slate-500">{welcomeBackMessage.detail}</p>
+            </div>
+            <button type="button" onClick={() => setWelcomeBackMessage(undefined)} className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-200" aria-label="关闭欢迎提示">关闭</button>
+          </div>
+        </aside>
+      ) : null}
 
       <div className="mx-auto max-w-6xl space-y-5 md:space-y-6">
         <LifeOSNav activeModule={activeModule} onModuleChange={setActiveModule} />
