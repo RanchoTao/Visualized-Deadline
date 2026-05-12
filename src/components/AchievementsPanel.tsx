@@ -18,7 +18,7 @@ export function AchievementsPanel({ achievements }: AchievementsPanelProps) {
   const displayAchievements = showAll ? achievementCatalog : [...unlockedByRecent, ...nextGoals].slice(0, 4);
 
   return (
-    <section className="rounded-[2rem] border border-white/70 bg-white/75 p-5 shadow-xl shadow-slate-200/60 backdrop-blur">
+    <section className="relative z-0 rounded-[2rem] border border-white/70 bg-white/75 p-5 shadow-xl shadow-slate-200/60 backdrop-blur">
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-slate-500">成就系统</p>
