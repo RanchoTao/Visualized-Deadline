@@ -408,7 +408,7 @@ function App() {
     task: <TaskPage activeTasks={activeTasks} achievements={normalizedAchievements} onAddTask={() => setIsFormOpen(true)} onArchiveTask={archiveTask} onDeleteTask={deleteTask} onEditTask={startEditing} />,
     map: <LifeMapPage />,
     social: <SocialPage />,
-    log: <LogPage tasks={normalizedTasks} onDelete={deleteTask} onReviewNoteChange={updateReviewNote} />,
+    log: <>{taskManagerModule}<LogPage tasks={normalizedTasks} onDelete={deleteTask} onReviewNoteChange={updateReviewNote} /></>,
     me: <ProfilePage profile={normalizedProfile} onProfileChange={setProfile} />,
   };
 
