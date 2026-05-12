@@ -161,6 +161,13 @@ function buildRelationshipEdges(nodes: SocialNode[]): Edge<{ familiarity: number
 
 const favorabilityField: { key: keyof SocialPersonData; label: string } = { key: 'subjectiveFavorability', label: '好感度' };
 
+function formatLastInteraction(value?: string): string {
+  if (!value) return '未记录';
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return '未记录';
+  return new Intl.DateTimeFormat('zh-CN', { month: 'short', day: 'numeric' }).format(new Date(timestamp));
+}
+
 export function SocialPage() {
   const [storedNodes, setStoredNodes] = useLocalStorage<SocialNode[]>(storageKeys.socialNodes, seedNodes());
   const [layoutVersion, setLayoutVersion] = useLocalStorage<number>(storageKeys.socialLayoutVersion, 0);
@@ -240,6 +247,42 @@ export function SocialPage() {
         {contacts.length === 0 ? <div className="pointer-events-none absolute inset-x-0 top-24 z-10 text-center text-sm font-medium text-slate-400">添加对你重要的人，构建你的关系地图。</div> : null}
         <ReactFlow nodes={normalizedNodes} edges={relationshipEdges} onNodesChange={handleNodesChange} onNodeClick={(_, node) => setEditingNode(node)} selectedNodeId={editingNode?.id} fitView className="rounded-[1.5rem] bg-slate-50/80"><Background /><Controls /></ReactFlow>
       </div>
+      <section className="rounded-[2rem] border border-white/70 bg-white/75 p-5 shadow-xl shadow-slate-200/60 backdrop-blur">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-500">通讯录</p>
+            <h2 className="mt-1 text-2xl font-semibold text-slate-950">所有联系人</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">所有社交节点的列表视图，方便查找、编辑和复盘。</p>
+          </div>
+          <span className="rounded-full bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500 ring-1 ring-white/80">{contacts.length} 人</span>
+        </div>
+
+        {contacts.length === 0 ? (
+          <div className="mt-5 rounded-3xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-400">暂无联系人。添加联系人后会出现在这里。</div>
+        ) : (
+          <div className="mt-5 overflow-hidden rounded-[1.5rem] border border-slate-100 bg-white/70">
+            <div className="hidden grid-cols-[1fr_1fr_0.75fr_0.9fr_1.4fr_auto] gap-3 border-b border-slate-100 px-4 py-3 text-xs font-semibold text-slate-400 md:grid">
+              <span>姓名</span><span>圈层 / 关系分类</span><span>好感度</span><span>最近互动</span><span>备注</span><span>操作</span>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {contacts.map((node) => {
+                const data = getSocialData(node);
+                const favorability = clampScore(data.subjectiveFavorability);
+                return (
+                  <article key={node.id} className="grid gap-3 px-4 py-4 text-sm md:grid-cols-[1fr_1fr_0.75fr_0.9fr_1.4fr_auto] md:items-center">
+                    <button type="button" onClick={() => setEditingNode(node)} className="text-left font-semibold text-slate-950 hover:text-sky-700">{data.name}</button>
+                    <div className="text-slate-500"><span className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-semibold ring-1 ring-white/80">{socialRing(favorability).label}</span><span className="ml-2 text-xs">{data.roleCategory || data.relationshipType}</span></div>
+                    <div className="font-semibold text-slate-700">{favorability}/100</div>
+                    <div className="text-slate-500">{formatLastInteraction(data.lastInteractionDate)}</div>
+                    <p className="line-clamp-2 text-slate-500">{data.notes || '暂无备注'}</p>
+                    <button type="button" onClick={() => setEditingNode(node)} className="rounded-full bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700">编辑</button>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </section>
 
       {editingNode ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/15 px-4 backdrop-blur-sm">
