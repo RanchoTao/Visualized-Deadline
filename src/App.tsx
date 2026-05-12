@@ -1,16 +1,14 @@
 import { type ReactElement, useEffect, useMemo, useState } from 'react';
 import { AchievementToast } from './components/AchievementToast';
-import { AchievementsPanel } from './components/AchievementsPanel';
 import { HomePage } from './components/HomePage';
 import { LifeMapPage } from './components/LifeMapPage';
 import { LifeOSNav } from './components/LifeOSNav';
 import { LogPage } from './components/LogPage';
 import { OnboardingFlow } from './components/OnboardingFlow';
 import { ProfilePage } from './components/ProfilePage';
-import { PriorityMap } from './components/PriorityMap';
 import { TaskForm } from './components/TaskForm';
 import { SocialPage } from './components/SocialPage';
-import { TaskList } from './components/TaskList';
+import { TaskPage } from './components/TaskPage';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import type { Achievement, ActivityType, LifecycleStatus, LifeOSModule, PressureBreakdown, PressureCalibrationSnapshot, PressureHistoryEventType, PressureHistoryRecord, Task, TaskInput, UserProfile } from './types/task';
 import {
@@ -403,28 +401,11 @@ function App() {
   ) : null;
 
 
-  const taskManagerModule = (
-    <section className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-white/70 bg-white/75 p-6 shadow-xl shadow-slate-200/60 backdrop-blur">
-        <div>
-          <p className="text-sm font-semibold tracking-[0.24em] text-slate-500">任务系统</p>
-          <h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-950 md:text-5xl">任务系统</h1>
-          <p className="mt-3 max-w-2xl text-slate-600">完整任务地图、活动列表与长期归档从首页下移，避免打断今日控制台。</p>
-        </div>
-        <button onClick={() => setIsFormOpen(true)} className="rounded-full bg-slate-950 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 hover:bg-slate-700">
-          添加项目
-        </button>
-      </header>
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <PriorityMap tasks={activeTasks} />
-        <TaskList tasks={activeTasks} onArchive={archiveTask} onDelete={deleteTask} onEdit={startEditing} />
-      </div>
-      <AchievementsPanel achievements={normalizedAchievements} />
-    </section>
-  );
+
 
   const moduleContent: Record<LifeOSModule, ReactElement> = {
-    home: <HomePage pressure={pressure} pressureHistory={normalizedPressureHistory} recommendedTasks={recommendedTasks} activeTasks={activeTasks} tasks={normalizedTasks} onAddTask={() => setIsFormOpen(true)} onRecalibrate={openRecalibration} />,
+    home: <HomePage pressure={pressure} pressureHistory={normalizedPressureHistory} recommendedTasks={recommendedTasks} activeTasks={activeTasks} tasks={normalizedTasks} onAddTask={() => setIsFormOpen(true)} onRecalibrate={openRecalibration} onOpenTasks={() => setActiveModule('task')} />,
+    task: <TaskPage activeTasks={activeTasks} achievements={normalizedAchievements} onAddTask={() => setIsFormOpen(true)} onArchiveTask={archiveTask} onDeleteTask={deleteTask} onEditTask={startEditing} />,
     map: <LifeMapPage />,
     social: <SocialPage />,
     log: <>{taskManagerModule}<LogPage tasks={normalizedTasks} onDelete={deleteTask} onReviewNoteChange={updateReviewNote} /></>,

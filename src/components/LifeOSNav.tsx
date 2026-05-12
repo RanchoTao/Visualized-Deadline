@@ -7,6 +7,7 @@ interface LifeOSNavProps {
 
 const navItems: { id: LifeOSModule; label: string }[] = [
   { id: 'home', label: '首页' },
+  { id: 'task', label: '任务' },
   { id: 'map', label: '地图' },
   { id: 'social', label: '社交' },
   { id: 'log', label: '日志' },
@@ -21,7 +22,7 @@ export function LifeOSNav({ activeModule, onModuleChange }: LifeOSNavProps) {
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">LifeOS</p>
           <p className="mt-1 text-sm font-medium text-slate-600">个人操作系统</p>
         </div>
-        <div className="grid grid-cols-5 gap-1 rounded-[1.35rem] bg-slate-100/70 p-1 sm:flex sm:flex-wrap">
+        <div className="grid grid-cols-6 gap-1 rounded-[1.35rem] bg-slate-100/70 p-1 sm:flex sm:flex-wrap">
           {navItems.map((item) => {
             const isActive = activeModule === item.id;
             return (

@@ -1,4 +1,5 @@
 import type { PressureBreakdown, PressureHistoryRecord, Task } from '../types/task';
+import { MiniTaskMatrix } from './MiniTaskMatrix';
 import { PressureCard } from './PressureCard';
 import { RecommendationCard } from './RecommendationCard';
 
@@ -10,15 +11,17 @@ interface HomePageProps {
   tasks: Task[];
   onAddTask: () => void;
   onRecalibrate: () => void;
+  onOpenTasks: () => void;
 }
 
-export function HomePage({ pressure, pressureHistory, recommendedTasks, activeTasks, tasks, onAddTask, onRecalibrate }: HomePageProps) {
+export function HomePage({ pressure, pressureHistory, recommendedTasks, activeTasks, tasks, onAddTask, onRecalibrate, onOpenTasks }: HomePageProps) {
   const completedCount = tasks.filter((task) => task.lifecycleStatus === 'completed').length;
 
   return (
     <section className="space-y-5 md:space-y-6">
       <PressureCard pressure={pressure} history={pressureHistory} onRecalibrate={onRecalibrate} />
       <RecommendationCard tasks={recommendedTasks} />
+      <MiniTaskMatrix tasks={activeTasks} onOpenTasks={onOpenTasks} />
 
       <section className="rounded-[2rem] border border-white/70 bg-white/75 p-4 shadow-xl shadow-slate-200/60 backdrop-blur md:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
