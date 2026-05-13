@@ -4,7 +4,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { storageKeys } from '../storage';
 import type { SocialPersonData } from '../types/task';
 
-const CURRENT_SOCIAL_LAYOUT_VERSION = 8;
+const CURRENT_SOCIAL_LAYOUT_VERSION = 9;
 const CENTER = { x: 720, y: 560 };
 const DEFAULT_PERSON_COLOR = '#d8e2dc';
 const CENTER_NODE_COLOR = '#1e293b';
@@ -15,6 +15,15 @@ const NODE_HEIGHT = 62;
 type SocialNode = Node<SocialPersonData>;
 type LegacySocialData = Partial<SocialPersonData> & { details?: string; nickname?: string };
 type LegacySocialNode = Partial<Node<LegacySocialData>>;
+type ContactSortField = 'name' | 'favorability';
+type SortDirection = 'asc' | 'desc';
+interface ContactSortState {
+  field: ContactSortField;
+  direction: SortDirection;
+}
+interface NormalizeNodesOptions {
+  relayout?: boolean;
+}
 
 const socialClusters = [
   { id: 'family', label: '家人', color: '#fed7aa', angle: -Math.PI / 2, keywords: ['家人', '家庭', '亲人', '父母', 'family'] },
@@ -168,17 +177,20 @@ function seedNodes(): SocialNode[] {
   return [meNode()];
 }
 
-function normalizeNodes(nodes: unknown): SocialNode[] {
+function normalizeNodes(nodes: unknown, options: NormalizeNodesOptions = {}): SocialNode[] {
   if (!Array.isArray(nodes) || nodes.length === 0) return seedNodes();
   const rawPeople = nodes.filter((node): node is LegacySocialNode => Boolean(node) && typeof node === 'object').filter((node) => node.id !== 'me');
-  const sortedPeople = rawPeople.map((node) => ({ ...node, id: node.id || crypto.randomUUID() })).sort((a, b) => String(a.id).localeCompare(String(b.id)));
-  const prepared = sortedPeople.map((node, index) => {
+  const prepared = rawPeople.map((node, index) => {
+    const id = String(node.id || crypto.randomUUID());
     const data = normalizeSocialData(node.data);
-    const angle = normalizeAngle(data.angle) ?? angleFromPosition(node.position) ?? (socialClusters.find((cluster) => cluster.id === data.cluster)?.angle ?? 0) + stableOffset(String(node.id), 0.72);
-    const position = data.manualPosition && isValidSocialPosition(node.position) ? node.position : targetPosition({ id: String(node.id), position: { x: 0, y: 0 }, data: { ...data, angle } }, index);
-    return { id: String(node.id), position, data: { ...data, angle } };
+    const storedPosition = isValidSocialPosition(node.position) ? node.position : undefined;
+    const angle = normalizeAngle(data.angle) ?? angleFromPosition(storedPosition) ?? (socialClusters.find((cluster) => cluster.id === data.cluster)?.angle ?? 0) + stableOffset(id, 0.72);
+    const shouldKeepStoredPosition = Boolean(storedPosition) && !options.relayout;
+    const position = shouldKeepStoredPosition ? storedPosition! : targetPosition({ id, position: { x: 0, y: 0 }, data: { ...data, angle, manualPosition: false } }, index);
+    return { id, position, data: { ...data, angle, manualPosition: shouldKeepStoredPosition ? data.manualPosition : false } };
   });
-  return [meNode(), ...avoidCollisions(prepared)];
+  const laidOut = options.relayout ? avoidCollisions(prepared) : prepared;
+  return [meNode(), ...laidOut];
 }
 
 function getSocialData(node: SocialNode): SocialPersonData {
@@ -204,34 +216,41 @@ export function SocialPage() {
   const normalizedNodes = useMemo(() => normalizeNodes(storedNodes), [storedNodes]);
   const relationshipEdges = useMemo(() => buildRelationshipEdges(normalizedNodes), [normalizedNodes]);
   const [editingNode, setEditingNode] = useState<SocialNode | undefined>();
-  const [contactSort, setContactSort] = useState<'name' | 'favorability'>('name');
+  const [contactSort, setContactSort] = useState<ContactSortState | undefined>();
   const contacts = normalizedNodes.filter((node) => node.id !== 'me');
-  const sortedContacts = [...contacts].sort((a, b) => {
-    const aData = getSocialData(a);
-    const bData = getSocialData(b);
-    if (contactSort === 'favorability') return clampScore(bData.subjectiveFavorability) - clampScore(aData.subjectiveFavorability) || aData.name.localeCompare(bData.name, 'zh-CN');
-    return aData.name.localeCompare(bData.name, 'zh-CN');
-  });
+  const sortedContacts = contactSort
+    ? [...contacts].sort((a, b) => {
+        const aData = getSocialData(a);
+        const bData = getSocialData(b);
+        const directionMultiplier = contactSort.direction === 'asc' ? 1 : -1;
+        if (contactSort.field === 'favorability') return (clampScore(aData.subjectiveFavorability) - clampScore(bData.subjectiveFavorability)) * directionMultiplier;
+        return aData.name.localeCompare(bData.name, 'zh-CN', { numeric: true, sensitivity: 'base' }) * directionMultiplier;
+      })
+    : contacts;
   const clusterCounts = socialClusters.map((cluster) => ({ ...cluster, count: contacts.filter((node) => node.data?.cluster === cluster.id).length })).filter((cluster) => cluster.count > 0);
 
   useEffect(() => {
-    if (layoutVersion < CURRENT_SOCIAL_LAYOUT_VERSION || JSON.stringify(storedNodes) !== JSON.stringify(normalizedNodes)) {
-      setStoredNodes(normalizedNodes);
+    if (layoutVersion < CURRENT_SOCIAL_LAYOUT_VERSION) {
+      setStoredNodes(normalizeNodes(storedNodes, { relayout: true }));
       setLayoutVersion(CURRENT_SOCIAL_LAYOUT_VERSION);
+      return;
     }
+    if (JSON.stringify(storedNodes) !== JSON.stringify(normalizedNodes)) setStoredNodes(normalizedNodes);
   }, [layoutVersion, normalizedNodes, setLayoutVersion, setStoredNodes, storedNodes]);
 
   function handleNodesChange(changes: NodeChange<SocialNode>[]) {
+    const movedNodeIds = new Set(changes.filter((change) => change.type === 'position' && change.position).map((change) => change.id));
     setStoredNodes((nodes) => {
       const currentNodes = normalizeNodes(nodes);
       const changedNodes = applyNodeChanges(changes, currentNodes);
       return currentNodes.map((node) => {
         if (node.id === 'me') return meNode();
+        if (!movedNodeIds.has(node.id)) return node;
         const changedNode = changedNodes.find((item) => item.id === node.id);
-        if (!changedNode) return node;
+        if (!changedNode || !isValidSocialPosition(changedNode.position)) return node;
         const angle = angleFromPosition(changedNode.position) ?? node.data?.angle;
         const data = { ...getSocialData(node), angle, manualPosition: true };
-        return { ...node, position: targetPosition({ ...node, data }, currentNodes.findIndex((item) => item.id === node.id)), data };
+        return { ...node, position: changedNode.position, data };
       });
     });
   }
@@ -252,9 +271,34 @@ export function SocialPage() {
   function saveNode() {
     if (!editingNode) return;
     const sanitizedData = getSocialData(editingNode);
-    const sanitizedNode = { ...editingNode, data: sanitizedData, position: editingNode.id === 'me' ? meNode().position : targetPosition({ ...editingNode, data: sanitizedData }, normalizedNodes.findIndex((node) => node.id === editingNode.id)) };
+    const existingNode = normalizedNodes.find((node) => node.id === editingNode.id);
+    const shouldKeepPosition = editingNode.id !== 'me' && sanitizedData.manualPosition && isValidSocialPosition(existingNode?.position);
+    const position = editingNode.id === 'me'
+      ? meNode().position
+      : shouldKeepPosition
+        ? existingNode!.position
+        : targetPosition({ ...editingNode, data: sanitizedData }, normalizedNodes.findIndex((node) => node.id === editingNode.id));
+    const sanitizedNode = { ...editingNode, data: sanitizedData, position };
     setStoredNodes((nodes) => normalizeNodes(nodes).map((node) => (node.id === sanitizedNode.id ? sanitizedNode : node)));
     setEditingNode(undefined);
+  }
+
+  function cycleContactSort(field: ContactSortField) {
+    setContactSort((current) => {
+      if (!current || current.field !== field) return { field, direction: 'asc' };
+      if (current.direction === 'asc') return { field, direction: 'desc' };
+      return undefined;
+    });
+  }
+
+  function sortArrow(field: ContactSortField): string {
+    if (!contactSort || contactSort.field !== field) return '▵';
+    return contactSort.direction === 'asc' ? '▲' : '▼';
+  }
+
+  function relayoutSocialGraph() {
+    setStoredNodes((nodes) => normalizeNodes(nodes, { relayout: true }));
+    setLayoutVersion(CURRENT_SOCIAL_LAYOUT_VERSION);
   }
 
   function deleteNode() {
@@ -270,9 +314,9 @@ export function SocialPage() {
           <div>
             <p className="text-sm font-semibold tracking-[0.24em] text-slate-400">社交图谱</p>
             <h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-950">社交</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">好感度决定关系距离；拖动联系人只改变围绕“我”的方向。</p>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">好感度决定关系距离；拖动联系人只移动并固定当前节点。</p>
           </div>
-          <button type="button" onClick={addPerson} className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-slate-700">添加联系人</button>
+          <div className="flex flex-wrap gap-2"><button type="button" onClick={relayoutSocialGraph} className="rounded-full bg-white/85 px-4 py-3 text-sm font-semibold text-slate-600 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50">重新布局</button><button type="button" onClick={addPerson} className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-slate-700">添加联系人</button></div>
         </div>
         <div className="mt-5 flex flex-wrap gap-2">
           {clusterCounts.length === 0 ? <span className="rounded-full bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-400">暂无联系人</span> : clusterCounts.map((cluster) => <span key={cluster.id} className="rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 ring-1 ring-white/80" style={{ backgroundColor: cluster.color }}>{cluster.label} · {cluster.count}</span>)}
@@ -280,7 +324,7 @@ export function SocialPage() {
       </div>
 
       <div className="relative h-[72vh] min-h-[560px] overflow-hidden rounded-[2rem] border border-white/70 bg-white/75 p-3 shadow-xl shadow-slate-200/60 backdrop-blur md:min-h-[680px]">
-        <div className="pointer-events-none absolute left-5 top-5 z-10 max-w-md rounded-2xl bg-white/85 px-4 py-3 text-xs leading-5 text-slate-500 shadow-sm ring-1 ring-white/80 backdrop-blur">好感度决定距离；拖动只改变方向，不改变亲近程度。Ctrl/⌘ + 滚轮或按钮缩放。</div>
+        <div className="pointer-events-none absolute left-5 top-5 z-10 max-w-md rounded-2xl bg-white/85 px-4 py-3 text-xs leading-5 text-slate-500 shadow-sm ring-1 ring-white/80 backdrop-blur">好感度决定距离；拖动只移动当前节点并固定位置。Ctrl/⌘ + 滚轮或按钮缩放。</div>
         {contacts.length === 0 ? <div className="pointer-events-none absolute inset-x-0 top-24 z-10 text-center text-sm font-medium text-slate-400">添加对你重要的人，构建你的关系地图。</div> : null}
         <ReactFlow nodes={normalizedNodes} edges={relationshipEdges} onNodesChange={handleNodesChange} onNodeClick={(_, node) => setEditingNode(node)} selectedNodeId={editingNode?.id} fitView className="rounded-[1.5rem] bg-slate-50/80"><Background /><Controls /></ReactFlow>
       </div>
@@ -291,11 +335,7 @@ export function SocialPage() {
             <h2 className="mt-1 text-2xl font-semibold text-slate-950">所有联系人</h2>
             <p className="mt-2 text-sm leading-6 text-slate-500">所有社交节点的列表视图，方便查找、编辑和复盘。微信通讯录导入：未来支持。</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => setContactSort('name')} className={`rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ring-white/80 ${contactSort === 'name' ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-500'}`}>按姓名</button>
-            <button type="button" onClick={() => setContactSort('favorability')} className={`rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ring-white/80 ${contactSort === 'favorability' ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-500'}`}>按好感度</button>
-            <span className="rounded-full bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500 ring-1 ring-white/80">{contacts.length} 人</span>
-          </div>
+          <span className="rounded-full bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500 ring-1 ring-white/80">{contacts.length} 人</span>
         </div>
 
         {contacts.length === 0 ? (
@@ -303,7 +343,10 @@ export function SocialPage() {
         ) : (
           <div className="mt-5 overflow-hidden rounded-[1.5rem] border border-slate-100 bg-white/70">
             <div className="hidden grid-cols-[1fr_1fr_0.75fr_0.9fr_1.4fr_auto] gap-3 border-b border-slate-100 px-4 py-3 text-xs font-semibold text-slate-400 md:grid">
-              <span>姓名</span><span>关系</span><span>好感度</span><span>最近互动</span><span>备注</span><span>操作</span>
+              <button type="button" onClick={() => cycleContactSort('name')} className="text-left font-semibold text-slate-500 hover:text-slate-900">姓名 <span className="ml-1 text-slate-400">{sortArrow('name')}</span></button>
+              <span>关系</span>
+              <button type="button" onClick={() => cycleContactSort('favorability')} className="text-left font-semibold text-slate-500 hover:text-slate-900">好感度 <span className="ml-1 text-slate-400">{sortArrow('favorability')}</span></button>
+              <span>最近互动</span><span>备注</span><span>操作</span>
             </div>
             <div className="divide-y divide-slate-100">
               {sortedContacts.map((node) => {

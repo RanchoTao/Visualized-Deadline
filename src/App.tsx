@@ -536,7 +536,7 @@ function App() {
       ) : null}
       <AchievementToast achievement={toastAchievement} />
       {welcomeBackMessage ? (
-        <aside className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/20 px-4 py-6 backdrop-blur-md" role="status">
+        <aside className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-100/45 px-4 py-6 backdrop-blur-md" role="status">
           <div className="relative w-full max-w-xl overflow-hidden rounded-[2rem] border border-white/80 bg-white/88 p-7 shadow-2xl shadow-slate-950/20 backdrop-blur-xl">
             <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-sky-200/40 blur-3xl" />
             <div className="pointer-events-none absolute -bottom-20 -left-14 h-48 w-48 rounded-full bg-violet-200/35 blur-3xl" />
@@ -550,7 +550,7 @@ function App() {
             <div className="relative mt-5 space-y-3 text-sm leading-6 text-slate-600">
               <p className="text-lg font-semibold text-slate-800">欢迎回到 Visualized Deadline。</p>
               <p className="rounded-2xl bg-slate-50/80 px-4 py-3 ring-1 ring-white/80">当前时间：{welcomeBackMessage.currentTime}</p>
-              <p className="rounded-2xl bg-slate-950 px-4 py-3 font-semibold text-white shadow-lg shadow-slate-900/10">{welcomeBackMessage.detail}</p>
+              <p className="rounded-2xl bg-white/75 px-4 py-3 font-semibold text-slate-700 ring-1 ring-white/80">{welcomeBackMessage.detail}</p>
             </div>
           </div>
         </aside>
