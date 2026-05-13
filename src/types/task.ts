@@ -1,6 +1,6 @@
 export type Importance = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
-export type ActivityType = 'task' | 'schedule' | 'entertainment' | 'recovery' | 'study' | 'fitness' | 'social' | 'other';
+export type ActivityType = 'task' | 'schedule' | 'entertainment' | 'recovery' | 'study' | 'research' | 'fitness' | 'exercise' | 'work' | 'life' | 'social' | 'other';
 
 export type LifecycleStatus = 'active' | 'completed' | 'abandoned';
 

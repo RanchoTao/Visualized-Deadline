@@ -54,8 +54,15 @@ type LegacyTask = Partial<Omit<Task, 'schemaVersion' | 'activityType' | 'lifecyc
 type WelcomeBackMessage = {
   greeting: string;
   name: string;
+  currentTime: string;
   detail: string;
 };
+
+
+function formatWelcomeTime(date = new Date()): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 
 function getTimeGreeting(date = new Date()): string {
   const hour = date.getHours();
@@ -263,6 +270,7 @@ function App() {
       setWelcomeBackMessage({
         greeting: getTimeGreeting(new Date(now)),
         name,
+        currentTime: formatWelcomeTime(new Date(now)),
         detail: topUrgentTask ? `当前有 ${deadlinePressureTasks.length} 个截止压力任务，最高优先级：${topUrgentTask.title}。` : '当前没有明显截止压力，可以推进长期任务或恢复精力。',
       });
     }
@@ -410,6 +418,14 @@ function App() {
   }
 
 
+  function addTaskDrafts(inputs: TaskInput[]) {
+    if (inputs.length === 0) return;
+    const newTasks = inputs.map((input) => createTask(normalizeTaskInput(input)));
+    const nextTasks = [...newTasks, ...normalizedTasks];
+    setTasks(nextTasks);
+    recordPressureSnapshot('task_created', nextTasks, `AI 任务录入新增 ${newTasks.length} 个任务。`);
+  }
+
 
   function archiveTask(task: Task, lifecycleStatus: Exclude<LifecycleStatus, 'active'>) {
     const now = new Date().toISOString();
@@ -484,6 +500,7 @@ function App() {
       achievements={normalizedAchievements}
       pressure={pressure}
       onAddTask={() => setIsFormOpen(true)}
+      onConfirmAITasks={addTaskDrafts}
       onArchiveTask={archiveTask}
       onDeleteTask={deleteTask}
       onEditTask={startEditing}
@@ -495,7 +512,7 @@ function App() {
     task: taskModule,
     map: <LifeMapPage />,
     social: <SocialPage />,
-    log: <LogPage tasks={normalizedTasks} onDelete={deleteTask} onReviewNoteChange={updateReviewNote} />,
+    log: <LogPage tasks={normalizedTasks} pressureHistory={normalizedPressureHistory} onDelete={deleteTask} onReviewNoteChange={updateReviewNote} />,
     me: <ProfilePage profile={normalizedProfile} onProfileChange={setProfile} />,
   };
 
@@ -519,13 +536,22 @@ function App() {
       ) : null}
       <AchievementToast achievement={toastAchievement} />
       {welcomeBackMessage ? (
-        <aside className="fixed bottom-6 right-4 z-30 w-[calc(100%-2rem)] max-w-sm rounded-[1.5rem] border border-white/80 bg-white/90 p-4 shadow-2xl shadow-slate-300/60 backdrop-blur md:right-6" role="status">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-slate-950">{welcomeBackMessage.greeting}，{welcomeBackMessage.name}，欢迎回到 Visualized Deadline。</p>
-              <p className="mt-2 text-xs leading-5 text-slate-500">{welcomeBackMessage.detail}</p>
+        <aside className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/20 px-4 py-6 backdrop-blur-md" role="status">
+          <div className="relative w-full max-w-xl overflow-hidden rounded-[2rem] border border-white/80 bg-white/88 p-7 shadow-2xl shadow-slate-950/20 backdrop-blur-xl">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-sky-200/40 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-20 -left-14 h-48 w-48 rounded-full bg-violet-200/35 blur-3xl" />
+            <div className="relative flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold tracking-[0.22em] text-slate-400">WELCOME BACK</p>
+                <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{welcomeBackMessage.greeting}，{welcomeBackMessage.name}</h2>
+              </div>
+              <button type="button" onClick={() => setWelcomeBackMessage(undefined)} className="rounded-full bg-white/80 px-3 py-1.5 text-xs font-semibold text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100" aria-label="关闭欢迎提示">关闭</button>
             </div>
-            <button type="button" onClick={() => setWelcomeBackMessage(undefined)} className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-200" aria-label="关闭欢迎提示">关闭</button>
+            <div className="relative mt-5 space-y-3 text-sm leading-6 text-slate-600">
+              <p className="text-lg font-semibold text-slate-800">欢迎回到 Visualized Deadline。</p>
+              <p className="rounded-2xl bg-slate-50/80 px-4 py-3 ring-1 ring-white/80">当前时间：{welcomeBackMessage.currentTime}</p>
+              <p className="rounded-2xl bg-slate-950 px-4 py-3 font-semibold text-white shadow-lg shadow-slate-900/10">{welcomeBackMessage.detail}</p>
+            </div>
           </div>
         </aside>
       ) : null}

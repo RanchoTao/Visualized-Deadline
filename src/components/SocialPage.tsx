@@ -4,7 +4,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { storageKeys } from '../storage';
 import type { SocialPersonData } from '../types/task';
 
-const CURRENT_SOCIAL_LAYOUT_VERSION = 7;
+const CURRENT_SOCIAL_LAYOUT_VERSION = 8;
 const CENTER = { x: 720, y: 560 };
 const DEFAULT_PERSON_COLOR = '#d8e2dc';
 const CENTER_NODE_COLOR = '#1e293b';
@@ -79,23 +79,53 @@ function relationshipStrength(data: SocialPersonData): number {
 }
 
 function socialRing(score: number): { label: string; radius: number } {
-  if (score >= 80) return { label: '核心圈', radius: 180 };
-  if (score >= 60) return { label: '亲近圈', radius: 300 };
-  if (score >= 40) return { label: '熟悉圈', radius: 420 };
-  if (score >= 20) return { label: '普通圈', radius: 540 };
-  return { label: '外围圈', radius: 660 };
+  const radius = socialRadius(score);
+  if (score >= 80) return { label: '核心关系', radius };
+  if (score >= 60) return { label: '亲近关系', radius };
+  if (score >= 40) return { label: '熟悉关系', radius };
+  if (score >= 20) return { label: '普通关系', radius };
+  return { label: '外围关系', radius };
+}
+
+function socialRadius(score: number): number {
+  return 160 + (100 - clampScore(score)) * 5.2;
 }
 
 function targetPosition(node: SocialNode, index: number): SocialNode['position'] {
   const data = node.data ?? normalizeSocialData(undefined);
   const cluster = socialClusters.find((item) => item.id === data.cluster) ?? clusterFor(data);
   const score = clampScore(data.subjectiveFavorability);
-  const radius = socialRing(score).radius;
-  const angle = normalizeAngle(data.angle) ?? cluster.angle + stableOffset(node.id, 0.56) + (index % 3 - 1) * 0.08;
+  const radius = socialRadius(score) + stableOffset(`${node.id}-radius`, 34);
+  const angle = normalizeAngle(data.angle) ?? cluster.angle + stableOffset(`${node.id}-angle`, 0.66) + (index % 4 - 1.5) * 0.06;
   return {
     x: Math.round(CENTER.x + Math.cos(angle) * radius - NODE_WIDTH / 2),
     y: Math.round(CENTER.y + Math.sin(angle) * radius - NODE_HEIGHT / 2),
   };
+}
+
+function avoidCollisions(nodes: SocialNode[]): SocialNode[] {
+  const placed: SocialNode[] = [];
+  for (const node of nodes) {
+    if (node.id === 'me') {
+      placed.push(node);
+      continue;
+    }
+    let position = { ...node.position };
+    let angle = angleFromPosition(position) ?? node.data?.angle ?? 0;
+    let radius = Math.hypot(position.x + NODE_WIDTH / 2 - CENTER.x, position.y + NODE_HEIGHT / 2 - CENTER.y);
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const overlaps = placed.some((placedNode) => Math.abs(position.x - placedNode.position.x) < NODE_WIDTH + 18 && Math.abs(position.y - placedNode.position.y) < NODE_HEIGHT + 18);
+      if (!overlaps) break;
+      angle += 0.18 + stableOffset(`${node.id}-collision-${attempt}`, 0.06);
+      radius += 12;
+      position = {
+        x: Math.round(CENTER.x + Math.cos(angle) * radius - NODE_WIDTH / 2),
+        y: Math.round(CENTER.y + Math.sin(angle) * radius - NODE_HEIGHT / 2),
+      };
+    }
+    placed.push({ ...node, position });
+  }
+  return placed;
 }
 
 
@@ -148,7 +178,7 @@ function normalizeNodes(nodes: unknown): SocialNode[] {
     const position = data.manualPosition && isValidSocialPosition(node.position) ? node.position : targetPosition({ id: String(node.id), position: { x: 0, y: 0 }, data: { ...data, angle } }, index);
     return { id: String(node.id), position, data: { ...data, angle } };
   });
-  return [meNode(), ...prepared];
+  return [meNode(), ...avoidCollisions(prepared)];
 }
 
 function getSocialData(node: SocialNode): SocialPersonData {
@@ -174,7 +204,14 @@ export function SocialPage() {
   const normalizedNodes = useMemo(() => normalizeNodes(storedNodes), [storedNodes]);
   const relationshipEdges = useMemo(() => buildRelationshipEdges(normalizedNodes), [normalizedNodes]);
   const [editingNode, setEditingNode] = useState<SocialNode | undefined>();
+  const [contactSort, setContactSort] = useState<'name' | 'favorability'>('name');
   const contacts = normalizedNodes.filter((node) => node.id !== 'me');
+  const sortedContacts = [...contacts].sort((a, b) => {
+    const aData = getSocialData(a);
+    const bData = getSocialData(b);
+    if (contactSort === 'favorability') return clampScore(bData.subjectiveFavorability) - clampScore(aData.subjectiveFavorability) || aData.name.localeCompare(bData.name, 'zh-CN');
+    return aData.name.localeCompare(bData.name, 'zh-CN');
+  });
   const clusterCounts = socialClusters.map((cluster) => ({ ...cluster, count: contacts.filter((node) => node.data?.cluster === cluster.id).length })).filter((cluster) => cluster.count > 0);
 
   useEffect(() => {
@@ -252,9 +289,13 @@ export function SocialPage() {
           <div>
             <p className="text-sm font-semibold text-slate-500">通讯录</p>
             <h2 className="mt-1 text-2xl font-semibold text-slate-950">所有联系人</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500">所有社交节点的列表视图，方便查找、编辑和复盘。</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">所有社交节点的列表视图，方便查找、编辑和复盘。微信通讯录导入：未来支持。</p>
           </div>
-          <span className="rounded-full bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500 ring-1 ring-white/80">{contacts.length} 人</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => setContactSort('name')} className={`rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ring-white/80 ${contactSort === 'name' ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-500'}`}>按姓名</button>
+            <button type="button" onClick={() => setContactSort('favorability')} className={`rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ring-white/80 ${contactSort === 'favorability' ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-500'}`}>按好感度</button>
+            <span className="rounded-full bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500 ring-1 ring-white/80">{contacts.length} 人</span>
+          </div>
         </div>
 
         {contacts.length === 0 ? (
@@ -262,16 +303,16 @@ export function SocialPage() {
         ) : (
           <div className="mt-5 overflow-hidden rounded-[1.5rem] border border-slate-100 bg-white/70">
             <div className="hidden grid-cols-[1fr_1fr_0.75fr_0.9fr_1.4fr_auto] gap-3 border-b border-slate-100 px-4 py-3 text-xs font-semibold text-slate-400 md:grid">
-              <span>姓名</span><span>圈层 / 关系分类</span><span>好感度</span><span>最近互动</span><span>备注</span><span>操作</span>
+              <span>姓名</span><span>关系</span><span>好感度</span><span>最近互动</span><span>备注</span><span>操作</span>
             </div>
             <div className="divide-y divide-slate-100">
-              {contacts.map((node) => {
+              {sortedContacts.map((node) => {
                 const data = getSocialData(node);
                 const favorability = clampScore(data.subjectiveFavorability);
                 return (
                   <article key={node.id} className="grid gap-3 px-4 py-4 text-sm md:grid-cols-[1fr_1fr_0.75fr_0.9fr_1.4fr_auto] md:items-center">
                     <button type="button" onClick={() => setEditingNode(node)} className="text-left font-semibold text-slate-950 hover:text-sky-700">{data.name}</button>
-                    <div className="text-slate-500"><span className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-semibold ring-1 ring-white/80">{socialRing(favorability).label}</span><span className="ml-2 text-xs">{data.roleCategory || data.relationshipType}</span></div>
+                    <div className="text-slate-500"><span className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-semibold ring-1 ring-white/80">{data.roleCategory || data.relationshipType}</span></div>
                     <div className="font-semibold text-slate-700">{favorability}/100</div>
                     <div className="text-slate-500">{formatLastInteraction(data.lastInteractionDate)}</div>
                     <p className="line-clamp-2 text-slate-500">{data.notes || '暂无备注'}</p>

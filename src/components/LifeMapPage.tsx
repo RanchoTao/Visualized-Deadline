@@ -73,12 +73,12 @@ function LifeNodeCard({ module, focused, onClick }: { module: LifeTreeItem; focu
     <button
       type="button"
       onClick={onClick}
-      className={`relative rounded-[1.5rem] border border-white/80 bg-white/90 p-4 text-left shadow-lg shadow-slate-200/60 ring-1 ring-white/80 transition hover:-translate-y-0.5 hover:shadow-xl ${focused ? 'scale-[1.03] ring-2 ring-slate-300' : ''}`}
+      className={`relative rounded-[1.25rem] border border-white/80 bg-white/90 p-3 text-left shadow-md shadow-slate-200/60 ring-1 ring-white/80 transition hover:-translate-y-0.5 hover:shadow-lg ${focused ? 'scale-[1.03] ring-2 ring-slate-300' : ''}`}
     >
       <span className="absolute inset-x-4 top-0 h-1 rounded-full" style={{ backgroundColor: module.color }} />
-      <h3 className="text-lg font-semibold text-slate-950">{module.title}</h3>
-      <p className="mt-2 min-h-10 text-xs leading-5 text-slate-500">{module.description}</p>
-      <p className="mt-3 text-xs font-semibold text-slate-400">点击聚焦</p>
+      <h3 className="text-base font-semibold text-slate-950">{module.title}</h3>
+      <p className="mt-2 min-h-8 text-[11px] leading-4 text-slate-500">{module.description}</p>
+      <p className="mt-2 text-[11px] font-semibold text-slate-400">点击聚焦</p>
     </button>
   );
 }
@@ -101,16 +101,16 @@ export function LifeMapPage() {
       <div className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/75 p-5 shadow-xl shadow-slate-200/60 backdrop-blur">
         {!focusedModule ? (
           <div className="relative rounded-[1.75rem] bg-slate-50/80 p-5 ring-1 ring-white/80">
-            <div className="mx-auto flex max-w-3xl flex-col items-center gap-5">
-              <div className="rounded-[1.75rem] border border-slate-200 bg-white px-8 py-5 text-center shadow-lg shadow-slate-200/60">
+            <div className="mx-auto flex max-w-5xl flex-col items-center gap-4">
+              <div className="rounded-[1.5rem] border border-slate-200 bg-white px-8 py-4 text-center shadow-lg shadow-slate-200/60">
                 <p className="text-xs font-semibold text-slate-400">根节点</p>
                 <h2 className="mt-1 text-3xl font-semibold text-slate-950">我</h2>
                 <p className="mt-2 text-sm text-slate-500">身份、精力与长期选择的中心</p>
               </div>
-              <div className="h-10 w-px bg-slate-300" />
+              <div className="h-8 w-px bg-slate-300" />
               <div className="h-px w-full max-w-5xl bg-slate-300" />
             </div>
-            <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-8 grid gap-3 md:grid-cols-4 xl:grid-cols-7">
               {lifeModules.map((module) => <LifeNodeCard key={module.id} module={module} onClick={() => setFocusedModuleId(module.id)} />)}
             </div>
           </div>
