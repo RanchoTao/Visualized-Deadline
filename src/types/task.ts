@@ -13,7 +13,14 @@ export interface Task {
   importance: Importance;
   deadline?: string;
   progress: number;
+  taskProgress?: number;
+  timeProgress?: number;
+  estimatedDuration?: number;
   progressMode?: ProgressMode;
+  decomposition?: string[];
+  stages?: string[];
+  milestoneSuggestions?: string[];
+  linkedGoalIds?: string[];
   activityType: ActivityType;
   lifecycleStatus: LifecycleStatus;
   completedAt?: string;
@@ -71,6 +78,27 @@ export interface Achievement {
   title: string;
   description: string;
   unlockedAt: string;
+}
+
+export interface Goal {
+  id: string;
+  title: string;
+  targetDate?: string;
+  category: ActivityType;
+  priority: Importance;
+  linkedTaskIds: string[];
+  roadmapSuggestions?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GoalInput {
+  title: string;
+  targetDate?: string;
+  category: ActivityType;
+  priority: Importance;
+  linkedTaskIds?: string[];
+  roadmapSuggestions?: string[];
 }
 
 export type LifeOSModule = 'home' | 'task' | 'map' | 'social' | 'log' | 'me';

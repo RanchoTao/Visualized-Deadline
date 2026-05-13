@@ -1,7 +1,9 @@
-import type { PressureBreakdown, PressureHistoryRecord, Task } from '../types/task';
+import type { Goal, GoalInput, PressureBreakdown, PressureHistoryRecord, Task } from '../types/task';
 import { MiniTaskMatrix } from './MiniTaskMatrix';
+import { GoalRoadmapPanel } from './GoalRoadmapPanel';
 import { PressureCard } from './PressureCard';
 import { RecommendationCard } from './RecommendationCard';
+import { TodayFocusPanel } from './TodayFocusPanel';
 
 interface HomePageProps {
   pressure: PressureBreakdown;
@@ -9,19 +11,23 @@ interface HomePageProps {
   recommendedTasks: Task[];
   activeTasks: Task[];
   tasks: Task[];
+  goals: Goal[];
+  onSaveGoal: (input: GoalInput, goalId?: string) => void;
   onAddTask: () => void;
   onRecalibrate: () => void;
   onOpenTasks: () => void;
 }
 
-export function HomePage({ pressure, pressureHistory, recommendedTasks, activeTasks, tasks, onAddTask, onRecalibrate, onOpenTasks }: HomePageProps) {
+export function HomePage({ pressure, pressureHistory, recommendedTasks, activeTasks, tasks, goals, onSaveGoal, onAddTask, onRecalibrate, onOpenTasks }: HomePageProps) {
   const completedCount = tasks.filter((task) => task.lifecycleStatus === 'completed').length;
 
   return (
     <section className="space-y-5 md:space-y-6">
       <PressureCard pressure={pressure} history={pressureHistory} onRecalibrate={onRecalibrate} />
+      <TodayFocusPanel tasks={activeTasks} onOpenTasks={onOpenTasks} />
       <RecommendationCard tasks={recommendedTasks} />
       <MiniTaskMatrix tasks={activeTasks} onOpenTasks={onOpenTasks} />
+      <GoalRoadmapPanel goals={goals} tasks={tasks} onSaveGoal={onSaveGoal} />
 
       <section className="rounded-[2rem] border border-white/70 bg-white/75 p-4 shadow-xl shadow-slate-200/60 backdrop-blur md:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">

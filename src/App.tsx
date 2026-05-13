@@ -10,7 +10,7 @@ import { TaskForm } from './components/TaskForm';
 import { SocialPage } from './components/SocialPage';
 import { TaskPage } from './components/TaskPage';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import type { Achievement, ActivityType, LifecycleStatus, LifeOSModule, PressureBreakdown, PressureCalibrationSnapshot, PressureHistoryEventType, PressureHistoryRecord, Task, TaskInput, UserProfile } from './types/task';
+import type { Achievement, ActivityType, Goal, GoalInput, LifecycleStatus, LifeOSModule, PressureBreakdown, PressureCalibrationSnapshot, PressureHistoryEventType, PressureHistoryRecord, Task, TaskInput, UserProfile } from './types/task';
 import {
   achievementCatalog,
   calculatePressureIndex,
@@ -50,6 +50,13 @@ type LegacyTask = Partial<Omit<Task, 'schemaVersion' | 'activityType' | 'lifecyc
   lifecycleStatus?: LifecycleStatus | string;
   status?: 'todo' | 'doing' | 'done';
   progressMode?: 'manual' | 'auto' | string;
+  taskProgress?: number;
+  timeProgress?: number;
+  estimatedDuration?: number;
+  decomposition?: string[];
+  stages?: string[];
+  milestoneSuggestions?: string[];
+  linkedGoalIds?: string[];
   schemaVersion?: number;
 };
 
@@ -109,7 +116,14 @@ function normalizeTaskInput(input: TaskInput): TaskInput {
     importance: clampImportance(input.importance),
     deadline: input.deadline,
     progress: clampProgress(input.progress),
+    taskProgress: clampProgress(input.taskProgress ?? input.progress),
+    timeProgress: undefined,
+    estimatedDuration: input.estimatedDuration,
     progressMode: normalizeProgressMode(input.progressMode, clampProgress(input.progress), input.deadline),
+    decomposition: input.decomposition?.filter(Boolean),
+    stages: input.stages?.filter(Boolean),
+    milestoneSuggestions: input.milestoneSuggestions?.filter(Boolean),
+    linkedGoalIds: input.linkedGoalIds?.filter(Boolean),
     activityType: normalizeActivityType(input.activityType),
     lifecycleStatus,
   };
@@ -130,12 +144,19 @@ function normalizeStoredTask(task: LegacyTask): Task {
     importance: isCurrentSchema ? clampImportance(task.importance) : migrateLegacyImportance(task.importance),
     deadline: task.deadline || undefined,
     progress,
+    taskProgress: clampProgress(task.taskProgress ?? progress),
+    timeProgress: undefined,
+    estimatedDuration: typeof task.estimatedDuration === 'number' && Number.isFinite(task.estimatedDuration) ? Math.max(0, Math.round(task.estimatedDuration)) : undefined,
     progressMode: normalizeProgressMode(task.progressMode, progress, task.deadline || undefined),
     activityType: normalizeActivityType(task.activityType),
     lifecycleStatus: migratedLifecycleStatus,
     completedAt,
     abandonedAt,
     reviewNote: typeof task.reviewNote === 'string' ? task.reviewNote : undefined,
+    decomposition: Array.isArray(task.decomposition) ? task.decomposition.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())) : undefined,
+    stages: Array.isArray(task.stages) ? task.stages.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())) : undefined,
+    milestoneSuggestions: Array.isArray(task.milestoneSuggestions) ? task.milestoneSuggestions.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())) : undefined,
+    linkedGoalIds: Array.isArray(task.linkedGoalIds) ? task.linkedGoalIds.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())) : undefined,
     schemaVersion: 3,
     createdAt: task.createdAt || now,
     updatedAt: task.updatedAt || now,
@@ -162,6 +183,41 @@ function normalizeProfile(profile: unknown): UserProfile {
     longTermGoals: storedProfile.longTermGoals ?? '',
     currentStage: storedProfile.currentStage ?? '',
     avatarDataUrl: storedProfile.avatarDataUrl || undefined,
+  };
+}
+
+function normalizeGoal(goal: Partial<Goal>): Goal {
+  const now = new Date().toISOString();
+  return {
+    id: goal.id || crypto.randomUUID(),
+    title: goal.title?.trim() || '未命名目标',
+    targetDate: goal.targetDate || undefined,
+    category: normalizeActivityType(goal.category),
+    priority: clampImportance(goal.priority),
+    linkedTaskIds: Array.isArray(goal.linkedTaskIds) ? goal.linkedTaskIds.filter((id): id is string => typeof id === 'string' && Boolean(id.trim())) : [],
+    roadmapSuggestions: Array.isArray(goal.roadmapSuggestions) ? goal.roadmapSuggestions.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())) : undefined,
+    createdAt: goal.createdAt || now,
+    updatedAt: goal.updatedAt || now,
+  };
+}
+
+function normalizeGoals(goals: unknown): Goal[] {
+  if (!Array.isArray(goals)) return [];
+  return goals.filter((goal): goal is Partial<Goal> => Boolean(goal) && typeof goal === 'object').map(normalizeGoal);
+}
+
+function createGoal(input: GoalInput): Goal {
+  const now = new Date().toISOString();
+  return {
+    id: crypto.randomUUID(),
+    title: input.title.trim() || '未命名目标',
+    targetDate: input.targetDate || undefined,
+    category: normalizeActivityType(input.category),
+    priority: clampImportance(input.priority),
+    linkedTaskIds: input.linkedTaskIds ?? [],
+    roadmapSuggestions: input.roadmapSuggestions?.filter(Boolean),
+    createdAt: now,
+    updatedAt: now,
   };
 }
 
@@ -193,6 +249,7 @@ function createAchievement(id: string): Achievement | undefined {
 
 function App() {
   const [tasks, setTasks] = useLocalStorage<Task[]>(storageKeys.tasks, []);
+  const [goals, setGoals] = useLocalStorage<Goal[]>(storageKeys.goals, []);
   const [achievements, setAchievements] = useLocalStorage<Achievement[]>(storageKeys.achievements, []);
   const [profile, setProfile] = useLocalStorage<UserProfile>(storageKeys.profile, defaultProfile);
   const [onboardingComplete, setOnboardingComplete] = useLocalStorage<boolean>(storageKeys.onboardingComplete, readInitialOnboardingComplete());
@@ -212,6 +269,7 @@ function App() {
     const storedTasks = Array.isArray(tasks) ? tasks : [];
     return storedTasks.map((task) => normalizeStoredTask(task));
   }, [tasks]);
+  const normalizedGoals = useMemo(() => normalizeGoals(goals), [goals]);
   const normalizedAchievements = useMemo(() => normalizeStoredAchievements(achievements), [achievements]);
   const normalizedProfile = useMemo(() => normalizeProfile(profile), [profile]);
   const normalizedPressureCalibration = useMemo(() => normalizePressureCalibration(pressureCalibration, legacyReferencePressure), [legacyReferencePressure, pressureCalibration]);
@@ -226,6 +284,12 @@ function App() {
       setTasks(normalizedTasks);
     }
   }, [normalizedTasks, setTasks, tasks]);
+
+  useEffect(() => {
+    if (JSON.stringify(goals) !== JSON.stringify(normalizedGoals)) {
+      setGoals(normalizedGoals);
+    }
+  }, [goals, normalizedGoals, setGoals]);
 
   useEffect(() => {
     if (JSON.stringify(achievements) !== JSON.stringify(normalizedAchievements)) {
@@ -439,6 +503,7 @@ function App() {
             ...item,
             lifecycleStatus,
             progress: lifecycleStatus === 'completed' ? 100 : item.progress,
+            taskProgress: lifecycleStatus === 'completed' ? 100 : item.taskProgress,
             progressMode: lifecycleStatus === 'completed' ? 'manual' : item.progressMode,
             completedAt: lifecycleStatus === 'completed' ? now : item.completedAt,
             abandonedAt: lifecycleStatus === 'abandoned' ? now : item.abandonedAt,
@@ -498,6 +563,16 @@ function App() {
   ) : null;
 
 
+  function saveGoal(input: GoalInput, goalId?: string) {
+    const now = new Date().toISOString();
+    if (goalId) {
+      setGoals((currentGoals) => normalizeGoals(currentGoals).map((goal) => (goal.id === goalId ? { ...goal, ...normalizeGoal({ ...input, id: goalId, createdAt: goal.createdAt, updatedAt: now }) } : goal)));
+      return;
+    }
+    setGoals((currentGoals) => [createGoal(input), ...normalizeGoals(currentGoals)]);
+  }
+
+
   const taskModule = (
     <TaskPage
       tasks={normalizedTasks}
@@ -513,7 +588,7 @@ function App() {
   );
 
   const moduleContent: Record<LifeOSModule, ReactElement> = {
-    home: <HomePage pressure={pressure} pressureHistory={normalizedPressureHistory} recommendedTasks={recommendedTasks} activeTasks={activeTasks} tasks={normalizedTasks} onAddTask={() => setIsFormOpen(true)} onRecalibrate={openRecalibration} onOpenTasks={() => setActiveModule('task')} />,
+    home: <HomePage pressure={pressure} pressureHistory={normalizedPressureHistory} recommendedTasks={recommendedTasks} activeTasks={activeTasks} tasks={normalizedTasks} goals={normalizedGoals} onSaveGoal={saveGoal} onAddTask={() => setIsFormOpen(true)} onRecalibrate={openRecalibration} onOpenTasks={() => setActiveModule('task')} />,
     task: taskModule,
     map: <LifeMapPage />,
     social: <SocialPage />,

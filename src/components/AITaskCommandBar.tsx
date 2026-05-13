@@ -93,7 +93,7 @@ export function AITaskCommandBar({ tasks, onConfirmTasks }: AITaskCommandBarProp
         <div>
           <p className="text-sm font-semibold text-slate-500">AI 任务录入</p>
           <h2 className="mt-1 text-2xl font-semibold">自然语言 → 可确认任务草稿</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">说出最近要做的事，AI 会整理成任务草稿，确认后才会写入 VD。</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">说出最近要推进的人生事项，AI 会抽取任务、阶段与拆解建议，确认后才会写入 VD。</p>
         </div>
         <span className="rounded-full bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500 ring-1 ring-white/80">{hasApiKey ? '已配置 API Key' : '未配置 API Key'}</span>
       </div>
@@ -133,6 +133,19 @@ export function AITaskCommandBar({ tasks, onConfirmTasks }: AITaskCommandBarProp
                     <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-slate-100">{getActivityTypeLabel(draft.activityType)}</span>
                   </div>
                   {draft.description ? <p className="mt-3 text-sm leading-6 text-slate-500">{draft.description}</p> : null}
+                  {draft.decomposition?.length ? (
+                    <div className="mt-3 rounded-2xl bg-white/80 p-3 ring-1 ring-white/80">
+                      <p className="text-xs font-semibold text-slate-500">结构拆解</p>
+                      <ul className="mt-2 space-y-1 text-xs text-slate-500">
+                        {draft.decomposition.slice(0, 5).map((item) => <li key={item}>· {item}</li>)}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {draft.milestoneSuggestions?.length ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {draft.milestoneSuggestions.slice(0, 4).map((item) => <span key={item} className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-500 ring-1 ring-slate-100">{item}</span>)}
+                    </div>
+                  ) : null}
                 </article>
               ))}
             </div>

@@ -17,8 +17,12 @@ export function normalizeProgressMode(progressMode: unknown, progress: number, d
   return progress === 0 && Boolean(deadline) ? 'auto' : 'manual';
 }
 
+export function getTaskProgress(task: Task): number {
+  return clampProgress(task.taskProgress ?? task.progress);
+}
+
 export function getTimeProgress(task: Task, now = new Date()): number {
-  const rawProgress = clampProgress(task.progress);
+  const rawProgress = getTaskProgress(task);
   if (task.lifecycleStatus !== 'active') return rawProgress;
   if (!task.deadline || !task.createdAt) return rawProgress;
 
@@ -38,7 +42,7 @@ export function isProgressAuto(task: Task): boolean {
 }
 
 export function getDisplayProgress(task: Task, now = new Date()): number {
-  return isProgressAuto(task) ? getTimeProgress(task, now) : clampProgress(task.progress);
+  return isProgressAuto(task) ? getTimeProgress(task, now) : getTaskProgress(task);
 }
 
 export function clampImportance(importance?: number): Importance {

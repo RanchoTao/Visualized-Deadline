@@ -1,5 +1,5 @@
 import type { PressureHistoryRecord, Task } from '../types/task';
-import { getDisplayProgress, getTimeProgress, isProgressAuto } from '../utils/taskScoring';
+import { getDisplayProgress, getTaskProgress, getTimeProgress, isProgressAuto } from '../utils/taskScoring';
 
 export const reviewSystemPrompt = `You are the review engine of Visualized Deadline (VD).
 
@@ -29,9 +29,14 @@ function taskSummary(task: Task) {
     importance: task.importance,
     deadline: task.deadline,
     progress: task.progress,
+    taskProgress: getTaskProgress(task),
     displayProgress: getDisplayProgress(task),
     progressMode: isProgressAuto(task) ? 'auto' : 'manual',
     timeProgress: getTimeProgress(task),
+    estimatedDuration: task.estimatedDuration,
+    decomposition: task.decomposition,
+    stages: task.stages,
+    milestoneSuggestions: task.milestoneSuggestions,
     activityType: task.activityType,
     lifecycleStatus: task.lifecycleStatus,
     createdAt: task.createdAt,

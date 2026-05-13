@@ -1,10 +1,10 @@
 import type { PressureBreakdown, Task } from '../types/task';
-import { getDisplayProgress, getTimeProgress, isProgressAuto } from '../utils/taskScoring';
+import { getDisplayProgress, getTaskProgress, getTimeProgress, isProgressAuto } from '../utils/taskScoring';
 
 export interface TaskAnalysisPayload {
   currentTime: string;
   pressure?: PressureBreakdown;
-  tasks: Array<Pick<Task, 'id' | 'title' | 'description' | 'importance' | 'deadline' | 'progress' | 'activityType' | 'lifecycleStatus' | 'createdAt' | 'updatedAt'> & { displayProgress: number; progressMode: 'manual' | 'auto'; timeProgress: number }>;
+  tasks: Array<Pick<Task, 'id' | 'title' | 'description' | 'importance' | 'deadline' | 'progress' | 'activityType' | 'lifecycleStatus' | 'createdAt' | 'updatedAt'> & { taskProgress: number; displayProgress: number; progressMode: 'manual' | 'auto'; timeProgress: number; estimatedDuration?: number; decomposition?: string[]; stages?: string[]; milestoneSuggestions?: string[] }>;
 }
 
 export const taskAnalysisSystemPrompt = `You are the cognitive analysis engine of Visualized Deadline (VD), an AI-native task and life-structure management system.
@@ -33,7 +33,7 @@ Rules:
 - Do not give generic motivational advice.
 - Be concise, structured, analytical, realistic, and execution-oriented.
 - Do not modify tasks directly.
-- Each task includes raw progress, displayProgress, progressMode, and timeProgress.
+- Each task includes raw progress, taskProgress, displayProgress, progressMode, and timeProgress.
 - auto progress means time elapsed toward deadline, not confirmed user completion.
 - Do not treat automatic displayProgress as proof that work was actually completed; use it as a deadline pressure / time consumption signal.
 
@@ -75,9 +75,14 @@ export function createTaskAnalysisPayload(tasks: Task[], pressure?: PressureBrea
       importance: task.importance,
       deadline: task.deadline,
       progress: task.progress,
+      taskProgress: getTaskProgress(task),
       displayProgress: getDisplayProgress(task),
       progressMode: isProgressAuto(task) ? 'auto' : 'manual',
       timeProgress: getTimeProgress(task),
+      estimatedDuration: task.estimatedDuration,
+      decomposition: task.decomposition,
+      stages: task.stages,
+      milestoneSuggestions: task.milestoneSuggestions,
       activityType: task.activityType,
       lifecycleStatus: task.lifecycleStatus,
       createdAt: task.createdAt,
@@ -99,7 +104,8 @@ Tasks:
 ${JSON.stringify(payload.tasks, null, 2)}
 
 Progress note:
-- progress is user-entered raw progress.
+- progress is legacy raw progress.
+- taskProgress is actual execution progress when manually known.
 - displayProgress is what VD shows in the UI.
 - progressMode "auto" means displayProgress/timeProgress is elapsed time toward the deadline, not confirmed completion.
 

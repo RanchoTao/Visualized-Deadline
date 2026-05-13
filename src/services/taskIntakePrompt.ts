@@ -7,6 +7,7 @@ Your job is to convert the user's natural language into structured task drafts.
 
 Rules:
 - Extract concrete tasks only.
+- Infer task type, decomposition suggestions, stages, and milestones when useful.
 - Do not create tasks for vague background context.
 - Infer reasonable importance only when evidence exists.
 - Infer deadline only when the user states or strongly implies time.
@@ -28,7 +29,10 @@ Return JSON in this shape:
       "deadline": "ISO string | null",
       "progress": 0,
       "activityType": "study | research | exercise | social | work | life | recovery | entertainment | other",
-      "lifecycleStatus": "active"
+      "lifecycleStatus": "active",
+      "decomposition": ["string"],
+      "stages": ["string"],
+      "milestoneSuggestions": ["string"]
     }
   ],
   "notes": "string"
@@ -82,6 +86,9 @@ function normalizeTaskDraft(value: unknown): TaskInput | undefined {
   const progress = clampProgress(typeof draft.progress === 'number' ? draft.progress : Number(draft.progress ?? 0));
   const deadline = normalizeDeadline(draft.deadline);
   const activityType = normalizeActivityType(typeof draft.activityType === 'string' ? draft.activityType : undefined);
+  const decomposition = Array.isArray(draft.decomposition) ? draft.decomposition.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())).slice(0, 8) : undefined;
+  const stages = Array.isArray(draft.stages) ? draft.stages.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())).slice(0, 8) : undefined;
+  const milestoneSuggestions = Array.isArray(draft.milestoneSuggestions) ? draft.milestoneSuggestions.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())).slice(0, 8) : undefined;
 
   return {
     title,
@@ -89,6 +96,11 @@ function normalizeTaskDraft(value: unknown): TaskInput | undefined {
     importance,
     deadline,
     progress,
+    taskProgress: progress,
+    progressMode: deadline && progress === 0 ? 'auto' : 'manual',
+    decomposition,
+    stages,
+    milestoneSuggestions,
     activityType,
     lifecycleStatus: normalizeLifecycleStatus(draft.lifecycleStatus),
   };
@@ -100,7 +112,7 @@ export function buildTaskIntakeUserPrompt(payload: TaskIntakePromptPayload): str
       currentTime: payload.currentTime,
       userInput: payload.input,
       existingTaskTitles: payload.existingTaskTitles,
-      instruction: 'Convert the user input into confirmed task drafts. Return valid JSON only.',
+      instruction: 'Convert the user input into confirmed task drafts with decomposition/stages/milestones when the work is large. Return valid JSON only. Do not create tasks directly.',
     },
     null,
     2,

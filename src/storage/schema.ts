@@ -1,4 +1,4 @@
-import type { Achievement, PressureCalibrationSnapshot, PressureHistoryRecord, Task, UserProfile } from '../types/task';
+import type { Achievement, Goal, PressureCalibrationSnapshot, PressureHistoryRecord, Task, UserProfile } from '../types/task';
 
 export const APP_NAME = 'Visualized-Deadline';
 export const SCHEMA_VERSION = '0.7';
@@ -24,6 +24,7 @@ export const storageKeys = {
   onboardingComplete: 'visualized-deadline.onboardingComplete',
   welcomeLastActive: 'visualized-deadline.welcomeLastActive',
   aiSettings: 'vd.aiSettings',
+  goals: 'visualized-deadline.goals',
   pressureCalibration: 'visualized-deadline.pressureCalibration',
   pressureHistory: 'visualized-deadline.pressureHistory',
   lifeMapNodes: 'visualized-deadline.lifeMap.nodes',
@@ -63,6 +64,7 @@ export interface SettingsExportData {
 
 export interface VisualizedDeadlineData {
   tasks: Task[];
+  goals: Goal[];
   pressure: PressureExportData;
   social: SocialExportData;
   lifeMap: LifeMapExportData;
@@ -161,6 +163,7 @@ export function normalizeExportData(data: Partial<VisualizedDeadlineData> | unde
 
   return {
     tasks: asArray(data?.tasks) as Task[],
+    goals: asArray(data?.goals) as Goal[],
     pressure: {
       baselinePressure: pressure && pressure.baselinePressure !== undefined && pressure.baselinePressure !== null ? asNumber(pressure.baselinePressure, 0) : null,
       calibration: (pressure?.calibration as PressureCalibrationSnapshot | null) ?? null,
