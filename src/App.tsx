@@ -479,8 +479,10 @@ function App() {
 
   const taskModule = (
     <TaskPage
+      tasks={normalizedTasks}
       activeTasks={activeTasks}
       achievements={normalizedAchievements}
+      pressure={pressure}
       onAddTask={() => setIsFormOpen(true)}
       onArchiveTask={archiveTask}
       onDeleteTask={deleteTask}
