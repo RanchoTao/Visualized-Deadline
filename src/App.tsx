@@ -1,17 +1,14 @@
-import { type ReactElement, useEffect, useMemo, useState } from 'react';
+import { type ReactElement, useEffect, useMemo, useRef, useState } from 'react';
 import { AchievementToast } from './components/AchievementToast';
-import { AchievementsPanel } from './components/AchievementsPanel';
-import { ActivityLog } from './components/ActivityLog';
 import { HomePage } from './components/HomePage';
 import { LifeMapPage } from './components/LifeMapPage';
 import { LifeOSNav } from './components/LifeOSNav';
 import { LogPage } from './components/LogPage';
 import { OnboardingFlow } from './components/OnboardingFlow';
 import { ProfilePage } from './components/ProfilePage';
-import { PriorityMap } from './components/PriorityMap';
 import { TaskForm } from './components/TaskForm';
 import { SocialPage } from './components/SocialPage';
-import { TaskList } from './components/TaskList';
+import { TaskPage } from './components/TaskPage';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import type { Achievement, ActivityType, LifecycleStatus, LifeOSModule, PressureBreakdown, PressureCalibrationSnapshot, PressureHistoryEventType, PressureHistoryRecord, Task, TaskInput, UserProfile } from './types/task';
 import {
@@ -23,15 +20,18 @@ import {
   clampPressure,
   clampProgress,
   getTaskScore,
+  getUrgencyScore,
   normalizePressureCalibration,
   migrateLegacyImportance,
   normalizeActivityType,
   normalizeLifecycleStatus,
 } from './utils/taskScoring';
 import { appendPressureHistoryRecord, createPressureHistoryRecord, normalizePressureHistory } from './utils/pressureHistory';
-import { hasValue, loadValue, savePressure, storageKeys } from './storage';
+import { hasValue, loadValue, savePressure, saveValue, storageKeys } from './storage';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const WELCOME_BACK_GAP_MS = 2 * 60 * 60 * 1000;
+const WELCOME_BACK_ACTIVE_WRITE_MS = 60 * 1000;
 
 const defaultProfile: UserProfile = {
   nickname: '',
@@ -50,6 +50,25 @@ type LegacyTask = Partial<Omit<Task, 'schemaVersion' | 'activityType' | 'lifecyc
   status?: 'todo' | 'doing' | 'done';
   schemaVersion?: number;
 };
+
+type WelcomeBackMessage = {
+  greeting: string;
+  name: string;
+  detail: string;
+};
+
+function getTimeGreeting(date = new Date()): string {
+  const hour = date.getHours();
+  if (hour < 11) return '早上好';
+  if (hour < 14) return '中午好';
+  if (hour < 18) return '下午好';
+  return '晚上好';
+}
+
+function isDeadlinePressureTask(task: Task): boolean {
+  return getUrgencyScore(task.deadline) >= 30;
+}
+
 
 function readBaselinePressure(): number | null {
   try {
@@ -175,6 +194,8 @@ function App() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>();
   const [toastAchievement, setToastAchievement] = useState<Achievement | undefined>();
+  const [welcomeBackMessage, setWelcomeBackMessage] = useState<WelcomeBackMessage | undefined>();
+  const hasCheckedWelcomeBack = useRef(false);
 
   const normalizedTasks = useMemo(() => {
     const storedTasks = Array.isArray(tasks) ? tasks : [];
@@ -186,6 +207,7 @@ function App() {
   const normalizedPressureHistory = useMemo(() => normalizePressureHistory(pressureHistory), [pressureHistory]);
   const activeTasks = useMemo(() => normalizedTasks.filter((task) => task.lifecycleStatus === 'active'), [normalizedTasks]);
   const recommendedTasks = useMemo(() => normalizedTasks.filter((task) => task.lifecycleStatus === 'active').sort((a, b) => getTaskScore(b) - getTaskScore(a)).slice(0, 3), [normalizedTasks]);
+  const deadlinePressureTasks = useMemo(() => activeTasks.filter(isDeadlinePressureTask).sort((a, b) => getTaskScore(b) - getTaskScore(a)), [activeTasks]);
   const pressure = useMemo<PressureBreakdown>(() => calculatePressureIndex(normalizedTasks, normalizedPressureCalibration, legacyReferencePressure), [normalizedTasks, normalizedPressureCalibration, legacyReferencePressure]);
 
   useEffect(() => {
@@ -223,6 +245,57 @@ function App() {
     const timeoutId = window.setTimeout(() => setToastAchievement(undefined), 4200);
     return () => window.clearTimeout(timeoutId);
   }, [toastAchievement]);
+
+  useEffect(() => {
+    if (hasCheckedWelcomeBack.current) return;
+    hasCheckedWelcomeBack.current = true;
+    const now = Date.now();
+    let previousActiveAt: number | null = null;
+    try {
+      previousActiveAt = loadValue<number | null>(storageKeys.welcomeLastActive, null);
+    } catch {
+      previousActiveAt = null;
+    }
+
+    const topUrgentTask = deadlinePressureTasks[0];
+    if (previousActiveAt && now - previousActiveAt > WELCOME_BACK_GAP_MS) {
+      const name = normalizedProfile.nickname.trim() || '用户';
+      setWelcomeBackMessage({
+        greeting: getTimeGreeting(new Date(now)),
+        name,
+        detail: topUrgentTask ? `当前有 ${deadlinePressureTasks.length} 个截止压力任务，最高优先级：${topUrgentTask.title}。` : '当前没有明显截止压力，可以推进长期任务或恢复精力。',
+      });
+    }
+
+    saveValue(storageKeys.welcomeLastActive, now);
+    let lastWriteAt = now;
+    const markActive = () => {
+      const current = Date.now();
+      if (current - lastWriteAt < WELCOME_BACK_ACTIVE_WRITE_MS) return;
+      lastWriteAt = current;
+      saveValue(storageKeys.welcomeLastActive, current);
+    };
+    const markVisible = () => {
+      if (document.visibilityState === 'visible') markActive();
+    };
+
+    window.addEventListener('focus', markActive);
+    window.addEventListener('pointerdown', markActive);
+    window.addEventListener('keydown', markActive);
+    document.addEventListener('visibilitychange', markVisible);
+    return () => {
+      window.removeEventListener('focus', markActive);
+      window.removeEventListener('pointerdown', markActive);
+      window.removeEventListener('keydown', markActive);
+      document.removeEventListener('visibilitychange', markVisible);
+    };
+  }, [deadlinePressureTasks, normalizedProfile.nickname]);
+
+  useEffect(() => {
+    if (!welcomeBackMessage) return;
+    const timeoutId = window.setTimeout(() => setWelcomeBackMessage(undefined), 5200);
+    return () => window.clearTimeout(timeoutId);
+  }, [welcomeBackMessage]);
 
 
   function recordPressureSnapshot(eventType: PressureHistoryEventType, sourceTasks = normalizedTasks, note?: string, calibration = normalizedPressureCalibration) {
@@ -336,6 +409,8 @@ function App() {
     closeForm();
   }
 
+
+
   function archiveTask(task: Task, lifecycleStatus: Exclude<LifecycleStatus, 'active'>) {
     const now = new Date().toISOString();
     const nextTasks = normalizedTasks.map((item) =>
@@ -377,18 +452,19 @@ function App() {
     );
   }
 
+
+
   function startEditing(task: Task) {
     setEditingTask(task);
     setIsFormOpen(true);
   }
-
 
   const taskFormOverlay = isFormOpen ? (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/15 px-4 py-6 backdrop-blur-sm">
       <section className="max-h-[calc(100vh-3rem)] w-full max-w-5xl overflow-y-auto rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-2xl shadow-slate-300/60">
         <div className="mb-4 flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">项目表单</p>
+            <p className="text-sm font-semibold tracking-[0.22em] text-slate-400">项目表单</p>
             <h2 className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">{editingTask ? '编辑项目' : '新建项目'}</h2>
           </div>
           <button type="button" onClick={closeForm} className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200">
@@ -400,34 +476,23 @@ function App() {
     </div>
   ) : null;
 
-  const taskManagerModule = (
-    <>
-      <header className="flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-white/70 bg-white/75 p-6 shadow-xl shadow-slate-200/60 backdrop-blur">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Task Manager · v0.9 foundation</p>
-          <h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-950 md:text-5xl">任务系统</h1>
-          <p className="mt-3 max-w-2xl text-slate-600">完整任务地图、活动列表与长期归档。首页只保留日常控制台。</p>
-        </div>
-        <button onClick={() => setIsFormOpen(true)} className="rounded-full bg-slate-950 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 hover:bg-slate-700">
-          添加项目
-        </button>
-      </header>
 
-
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <PriorityMap tasks={activeTasks} />
-        <div className="space-y-6">
-          <TaskList tasks={activeTasks} onArchive={archiveTask} onDelete={deleteTask} onEdit={startEditing} />
-          <ActivityLog tasks={normalizedTasks} onDelete={deleteTask} onReviewNoteChange={updateReviewNote} />
-        </div>
-      </div>
-
-      <AchievementsPanel achievements={normalizedAchievements} />
-    </>
+  const taskModule = (
+    <TaskPage
+      tasks={normalizedTasks}
+      activeTasks={activeTasks}
+      achievements={normalizedAchievements}
+      pressure={pressure}
+      onAddTask={() => setIsFormOpen(true)}
+      onArchiveTask={archiveTask}
+      onDeleteTask={deleteTask}
+      onEditTask={startEditing}
+    />
   );
 
   const moduleContent: Record<LifeOSModule, ReactElement> = {
-    home: <><HomePage pressure={pressure} pressureHistory={normalizedPressureHistory} recommendedTasks={recommendedTasks} activeTasks={activeTasks} tasks={normalizedTasks} onAddTask={() => setIsFormOpen(true)} onRecalibrate={openRecalibration} onDeleteTask={deleteTask} onReviewNoteChange={updateReviewNote} />{taskManagerModule}</>,
+    home: <HomePage pressure={pressure} pressureHistory={normalizedPressureHistory} recommendedTasks={recommendedTasks} activeTasks={activeTasks} tasks={normalizedTasks} onAddTask={() => setIsFormOpen(true)} onRecalibrate={openRecalibration} onOpenTasks={() => setActiveModule('task')} />,
+    task: taskModule,
     map: <LifeMapPage />,
     social: <SocialPage />,
     log: <LogPage tasks={normalizedTasks} onDelete={deleteTask} onReviewNoteChange={updateReviewNote} />,
@@ -441,7 +506,7 @@ function App() {
       {isRecalibrationOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/15 px-4 backdrop-blur-sm">
           <section className="w-full max-w-lg rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-2xl shadow-slate-300/60">
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-400">Pressure Recalibration</p>
+            <p className="text-sm font-semibold tracking-[0.22em] text-slate-400">压力校准</p>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">此刻这组任务让你感觉有多大压力？</h2>
             <p className="mt-3 text-sm leading-6 text-slate-500">系统会读取当前进行中任务负载，并用你的主观感受重新计算个体压力映射系数。</p>
             <div className="mt-6 rounded-3xl bg-slate-50/90 p-5 ring-1 ring-white/80">
@@ -453,6 +518,17 @@ function App() {
         </div>
       ) : null}
       <AchievementToast achievement={toastAchievement} />
+      {welcomeBackMessage ? (
+        <aside className="fixed bottom-6 right-4 z-30 w-[calc(100%-2rem)] max-w-sm rounded-[1.5rem] border border-white/80 bg-white/90 p-4 shadow-2xl shadow-slate-300/60 backdrop-blur md:right-6" role="status">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-950">{welcomeBackMessage.greeting}，{welcomeBackMessage.name}，欢迎回到 Visualized Deadline。</p>
+              <p className="mt-2 text-xs leading-5 text-slate-500">{welcomeBackMessage.detail}</p>
+            </div>
+            <button type="button" onClick={() => setWelcomeBackMessage(undefined)} className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-200" aria-label="关闭欢迎提示">关闭</button>
+          </div>
+        </aside>
+      ) : null}
 
       <div className="mx-auto max-w-6xl space-y-5 md:space-y-6">
         <LifeOSNav activeModule={activeModule} onModuleChange={setActiveModule} />
