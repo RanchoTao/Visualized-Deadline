@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/visualdeadline-banner.png" alt="Visualized Deadline banner" />
+  <img src="./visualdeadline-banner.png" alt="Visualized Deadline banner" />
 </p>
 
 # Visual-Deadline
