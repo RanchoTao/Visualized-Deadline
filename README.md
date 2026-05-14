@@ -4,7 +4,7 @@
 
 <div align="center">
 
-# Visualized-Deadline
+# Visual-Deadline
 
 ### Visualize pressure, not just tasks.
 
@@ -23,7 +23,7 @@ A pressure-aware, visualization-driven life operating system for deadlines, prio
 
 ## What is VD?
 
-**Visualized-Deadline (VD)** is not a traditional todo list. It is a **life operating system** that makes invisible pressure visible.
+**Visual-Deadline (VD)** is not a traditional todo list. It is a **life operating system** that makes invisible pressure visible.
 
 Most task apps ask: “What do you need to do?” VD asks a deeper question:
 
