@@ -14,12 +14,13 @@ interface HomePageProps {
   tasks: Task[];
   goals: Goal[];
   onSaveGoal: (input: GoalInput, goalId?: string) => void;
+  onDeleteGoal: (goalId: string) => void;
   onAddTask: () => void;
   onRecalibrate: () => void;
   onOpenTasks: () => void;
 }
 
-export function HomePage({ pressure, pressureHistory, recommendedTasks, activeTasks, tasks, goals, onSaveGoal, onAddTask, onRecalibrate, onOpenTasks }: HomePageProps) {
+export function HomePage({ pressure, pressureHistory, recommendedTasks, activeTasks, tasks, goals, onSaveGoal, onDeleteGoal, onAddTask, onRecalibrate, onOpenTasks }: HomePageProps) {
   const completedCount = tasks.filter((task) => task.lifecycleStatus === 'completed').length;
 
   return (
@@ -28,7 +29,7 @@ export function HomePage({ pressure, pressureHistory, recommendedTasks, activeTa
       <TodayFocusPanel tasks={activeTasks} onOpenTasks={onOpenTasks} />
       <RecommendationCard tasks={recommendedTasks} />
       <MiniTaskMatrix tasks={activeTasks} onOpenTasks={onOpenTasks} />
-      <GoalRoadmapPanel goals={goals} tasks={tasks} onSaveGoal={onSaveGoal} />
+      <GoalRoadmapPanel goals={goals} tasks={tasks} onSaveGoal={onSaveGoal} onDeleteGoal={onDeleteGoal} />
 
       <section className="rounded-[2rem] border border-white/70 bg-white/75 p-4 shadow-xl shadow-slate-200/60 backdrop-blur md:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">

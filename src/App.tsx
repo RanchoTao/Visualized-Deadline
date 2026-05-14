@@ -573,6 +573,12 @@ function App() {
   }
 
 
+  function deleteGoal(goalId: string) {
+    setGoals((currentGoals) => normalizeGoals(currentGoals).filter((goal) => goal.id !== goalId));
+    setTasks((currentTasks) => currentTasks.map((task) => task.linkedGoalIds?.includes(goalId) ? { ...task, linkedGoalIds: task.linkedGoalIds.filter((id) => id !== goalId), updatedAt: new Date().toISOString() } : task));
+  }
+
+
   const taskModule = (
     <TaskPage
       tasks={normalizedTasks}
@@ -588,7 +594,7 @@ function App() {
   );
 
   const moduleContent: Record<LifeOSModule, ReactElement> = {
-    home: <HomePage pressure={pressure} pressureHistory={normalizedPressureHistory} recommendedTasks={recommendedTasks} activeTasks={activeTasks} tasks={normalizedTasks} goals={normalizedGoals} onSaveGoal={saveGoal} onAddTask={() => setIsFormOpen(true)} onRecalibrate={openRecalibration} onOpenTasks={() => setActiveModule('task')} />,
+    home: <HomePage pressure={pressure} pressureHistory={normalizedPressureHistory} recommendedTasks={recommendedTasks} activeTasks={activeTasks} tasks={normalizedTasks} goals={normalizedGoals} onSaveGoal={saveGoal} onDeleteGoal={deleteGoal} onAddTask={() => setIsFormOpen(true)} onRecalibrate={openRecalibration} onOpenTasks={() => setActiveModule('task')} />,
     task: taskModule,
     map: <LifeMapPage />,
     social: <SocialPage />,
