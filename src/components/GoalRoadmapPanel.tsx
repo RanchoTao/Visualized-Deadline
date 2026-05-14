@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import type { Goal, GoalInput, Task } from '../types/task';
+import type { AIArtifactInput, Goal, GoalInput, Task } from '../types/task';
 import { defaultAISettings, normalizeAISettings, requestChatCompletion, type AISettings } from '../services/aiClient';
 import { buildGoalRoadmapUserPrompt, goalRoadmapSystemPrompt, parseGoalRoadmapResponse } from '../services/goals/roadmapPrompt';
 import { useLocalStorage } from '../hooks/useLocalStorage';
@@ -11,7 +11,7 @@ interface GoalRoadmapPanelProps {
   tasks: Task[];
   onSaveGoal: (input: GoalInput, goalId?: string) => void;
   onDeleteGoal: (goalId: string) => void;
-  onRoadmapGenerated?: () => void;
+  onRoadmapGenerated?: (artifact: AIArtifactInput) => void;
 }
 
 const categories = ['study', 'research', 'fitness', 'work', 'life', 'social', 'other'] as const;
@@ -104,10 +104,18 @@ export function GoalRoadmapPanel({ goals, tasks, onSaveGoal, onDeleteGoal, onRoa
       const content = await requestChatCompletion(settings, goalRoadmapSystemPrompt, buildGoalRoadmapUserPrompt(goal, tasks));
       const result = parseGoalRoadmapResponse(content);
       onSaveGoal({ ...createGoalInput(goal), roadmapSuggestions: result.roadmapSuggestions }, goal.id);
-      onRoadmapGenerated?.();
+      onRoadmapGenerated?.({
+        kind: 'goal-roadmap',
+        title: `路线图：${goal.title}`,
+        content: result.roadmapSuggestions.join('\n'),
+        relatedTaskIds: tasks.filter((task) => goal.linkedTaskIds.includes(task.id) || task.linkedGoalIds?.includes(goal.id)).map((task) => task.id),
+        relatedGoalIds: [goal.id],
+        model: settings.model,
+        metadata: { provider: settings.provider, goalTitle: goal.title, notes: result.notes },
+      });
       setRoadmapState({});
     } catch (error) {
-      setRoadmapState({ errorGoalId: goal.id, message: error instanceof Error ? error.message : '目标路线图生成失败。' });
+      setRoadmapState({ errorGoalId: goal.id, message: error instanceof Error ? error.message : '目标导航失败。' });
     }
   }
 

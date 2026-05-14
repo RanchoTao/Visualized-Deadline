@@ -1,8 +1,8 @@
-import type { Achievement, Goal, PressureCalibrationSnapshot, PressureHistoryRecord, Task, UserProfile } from '../types/task';
+import type { Achievement, AIArtifact, Goal, PressureCalibrationSnapshot, PressureHistoryRecord, Task, UserProfile } from '../types/task';
 
 export const APP_NAME = 'Visual Deadline';
 const LEGACY_APP_NAMES = ['Visualized-Deadline'] as const;
-export const SCHEMA_VERSION = '0.7';
+export const SCHEMA_VERSION = '0.8';
 export const STORAGE_CHANGE_EVENT = 'vd-storage-change';
 export const STORAGE_RECOVERY_EVENT = 'vd-storage-recovery';
 
@@ -28,6 +28,7 @@ export const storageKeys = {
   goals: 'visualized-deadline.goals',
   pressureCalibration: 'visualized-deadline.pressureCalibration',
   pressureHistory: 'visualized-deadline.pressureHistory',
+  aiArtifacts: 'visualized-deadline.aiArtifacts',
   lifeMapNodes: 'visualized-deadline.lifeMap.nodes',
   lifeMapLayoutVersion: 'visualized-deadline.lifeMap.layoutVersion',
   socialNodes: 'visualized-deadline.social.nodes',
@@ -56,6 +57,7 @@ export interface SocialExportData {
 
 export interface LogsExportData {
   achievements: Achievement[];
+  aiArtifacts: AIArtifact[];
 }
 
 export interface SettingsExportData {
@@ -180,6 +182,7 @@ export function normalizeExportData(data: Partial<VisualizedDeadlineData> | unde
     },
     logs: {
       achievements: asArray(logs?.achievements) as Achievement[],
+      aiArtifacts: asArray(logs?.aiArtifacts) as AIArtifact[],
     },
     settings: {
       profile: (settings?.profile as UserProfile | null) ?? null,

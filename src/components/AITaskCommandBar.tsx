@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { storageKeys } from '../storage';
-import type { Task, TaskInput } from '../types/task';
+import type { AIArtifactInput, Task, TaskInput } from '../types/task';
 import { defaultAISettings, normalizeAISettings, requestChatCompletion } from '../services/aiClient';
 import type { AISettings } from '../services/aiClient';
 import { buildTaskIntakeUserPrompt, createTaskIntakePayload, parseTaskIntakeResponse, taskIntakeSystemPrompt } from '../services/taskIntakePrompt';
@@ -10,6 +10,7 @@ import { getActivityTypeLabel } from '../utils/taskScoring';
 interface AITaskCommandBarProps {
   tasks: Task[];
   onConfirmTasks: (tasks: TaskInput[]) => void;
+  onAIArtifactGenerated?: (artifact: AIArtifactInput) => void;
 }
 
 type IntakeState = 'idle' | 'loading' | 'ready' | 'error';
@@ -21,7 +22,7 @@ function formatDeadline(deadline?: string): string {
   return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }
 
-export function AITaskCommandBar({ tasks, onConfirmTasks }: AITaskCommandBarProps) {
+export function AITaskCommandBar({ tasks, onConfirmTasks, onAIArtifactGenerated }: AITaskCommandBarProps) {
   const [storedSettings] = useLocalStorage<AISettings>(storageKeys.aiSettings, defaultAISettings);
   const settings = useMemo(() => normalizeAISettings(storedSettings), [storedSettings]);
   const [input, setInput] = useState('');
@@ -58,6 +59,15 @@ export function AITaskCommandBar({ tasks, onConfirmTasks }: AITaskCommandBarProp
       setNotes(parsed.notes);
       setRawJson(parsed.rawJson);
       setState('ready');
+      onAIArtifactGenerated?.({
+        kind: 'task-intake',
+        title: '任务草稿整理',
+        content: parsed.rawJson,
+        relatedTaskIds: [],
+        relatedGoalIds: [],
+        model: settings.model,
+        metadata: { provider: settings.provider, draftCount: parsed.tasks.length, notes: parsed.notes },
+      });
     } catch (error) {
       setState('error');
       setErrorMessage(error instanceof Error ? error.message : '任务整理失败，请稍后重试。');

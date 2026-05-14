@@ -1,5 +1,5 @@
 import { branding } from '../constants/branding';
-import type { Goal, GoalInput, PressureBreakdown, PressureHistoryRecord, Task } from '../types/task';
+import type { AIArtifactInput, Goal, GoalInput, PressureBreakdown, PressureHistoryRecord, Task } from '../types/task';
 import { MiniTaskMatrix } from './MiniTaskMatrix';
 import { GoalRoadmapPanel } from './GoalRoadmapPanel';
 import { PressureCard } from './PressureCard';
@@ -14,7 +14,7 @@ interface HomePageProps {
   goals: Goal[];
   onSaveGoal: (input: GoalInput, goalId?: string) => void;
   onDeleteGoal: (goalId: string) => void;
-  onRoadmapGenerated: () => void;
+  onRoadmapGenerated: (artifact: AIArtifactInput) => void;
   onRecalibrate: () => void;
   onOpenTasks: () => void;
 }
