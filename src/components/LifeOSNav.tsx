@@ -11,7 +11,7 @@ const navItems: { id: LifeOSModule; label: string }[] = [
   { id: 'task', label: '任务' },
   { id: 'map', label: '人生' },
   { id: 'social', label: '社交' },
-  { id: 'log', label: '复盘' },
+  { id: 'log', label: '数据中心' },
   { id: 'me', label: '我' },
 ];
 

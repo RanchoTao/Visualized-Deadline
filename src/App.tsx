@@ -714,7 +714,7 @@ function App() {
     task: taskModule,
     map: <LifeMapPage />,
     social: <SocialPage />,
-    log: <LogPage tasks={normalizedTasks} pressureHistory={normalizedPressureHistory} achievements={normalizedAchievements} aiArtifacts={normalizedAIArtifacts} onAIReportGenerated={(artifact) => { saveAIArtifact(artifact); unlockAchievement('ai-report-generated'); }} onDelete={deleteTask} onReviewNoteChange={updateReviewNote} />,
+    log: <LogPage tasks={normalizedTasks} goals={normalizedGoals} profile={normalizedProfile} pressure={pressure} pressureHistory={normalizedPressureHistory} achievements={normalizedAchievements} aiArtifacts={normalizedAIArtifacts} onAIReportGenerated={(artifact) => { saveAIArtifact(artifact); unlockAchievement('ai-report-generated'); }} onDelete={deleteTask} onReviewNoteChange={updateReviewNote} />,
     me: <ProfilePage profile={normalizedProfile} onProfileChange={setProfile} />,
   };
 
