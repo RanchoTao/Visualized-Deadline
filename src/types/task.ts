@@ -35,7 +35,31 @@ export type TaskInput = Omit<Task, 'id' | 'schemaVersion' | 'createdAt' | 'updat
 
 export type PressureState = 'steady' | 'manageable' | 'high' | 'overload' | 'burnout';
 
+export interface PressureTaskSnapshot {
+  taskId: string;
+  title: string;
+  importance: number;
+  deadline?: string;
+  activityType: ActivityType;
+  lifecycleStatus: LifecycleStatus;
+  urgencyWeight: number;
+  taskPressure: number;
+}
+
+export interface PressureModelWeightsSnapshot {
+  importanceWeight: number;
+  urgencyWeight: number;
+  interactionWeight: number;
+}
+
 export interface PressureCalibrationSnapshot {
+  lastSubjectivePressure: number;
+  rawPressureAtCalibration: number;
+  pressureCoefficient: number;
+  calibratedAt: string;
+  taskSnapshotAtCalibration: PressureTaskSnapshot[];
+  modelVersion?: string;
+  modelWeights?: PressureModelWeightsSnapshot;
   referencePressure: number;
   referenceTaskLoad: number;
   pressureRatio: number;

@@ -14,8 +14,6 @@ import type { Achievement, AIArtifact, AIArtifactInput, ActivityType, Goal, Goal
 import {
   achievementCatalog,
   calculatePressureIndex,
-  calculateRecoveryRelief,
-  calculateTaskLoad,
   createPressureCalibration,
   clampImportance,
   clampPressure,
@@ -362,10 +360,7 @@ function App() {
   const deadlinePressureTasks = useMemo(() => activeTasks.filter(isDeadlinePressureTask).sort((a, b) => getTaskScore(b) - getTaskScore(a)), [activeTasks]);
   const pressure = useMemo<PressureBreakdown>(() => calculatePressureIndex(normalizedTasks, normalizedPressureCalibration, legacyReferencePressure), [normalizedTasks, normalizedPressureCalibration, legacyReferencePressure]);
   const recalibrationPreview = useMemo<PressureBreakdown>(() => {
-    const activeLoad = calculateTaskLoad(normalizedTasks);
-    const activeCount = normalizedTasks.filter((task) => task.lifecycleStatus === 'active').length;
-    const recoveryRelief = calculateRecoveryRelief(normalizedTasks);
-    const previewCalibration = createPressureCalibration(recalibrationPressure, activeLoad, activeCount, new Date().toISOString(), recoveryRelief);
+    const previewCalibration = createPressureCalibration(recalibrationPressure, normalizedTasks, 0, new Date().toISOString());
     return calculatePressureIndex(normalizedTasks, previewCalibration, legacyReferencePressure);
   }, [legacyReferencePressure, normalizedTasks, recalibrationPressure]);
 
@@ -540,15 +535,12 @@ function App() {
   }, [activeModule, onboardingComplete]);
 
   function savePressureCalibration(referencePressure: number, sourceTasks = normalizedTasks) {
-    const activeLoad = calculateTaskLoad(sourceTasks);
-    const activeCount = sourceTasks.filter((task) => task.lifecycleStatus === 'active').length;
-    const recoveryRelief = calculateRecoveryRelief(sourceTasks);
-    const calibration = createPressureCalibration(referencePressure, activeLoad, activeCount, new Date().toISOString(), recoveryRelief);
+    const calibration = createPressureCalibration(referencePressure, sourceTasks, 0, new Date().toISOString());
     setPressureCalibration(calibration);
     unlockAchievement('first-manageable-pressure');
-    recordPressureSnapshot('recalibration', sourceTasks, '压力映射系数已重新校准。', calibration);
+    recordPressureSnapshot('recalibration', sourceTasks, `用户将主观压力重新校准为 ${calibration.lastSubjectivePressure}，系统已更新压力映射系数。`, calibration);
     // Keep the legacy pressure value available through the centralized storage layer.
-    savePressure({ baselinePressure: calibration.referencePressure });
+    savePressure({ baselinePressure: calibration.lastSubjectivePressure, calibration });
   }
 
   function openRecalibration() {
@@ -561,14 +553,15 @@ function App() {
     setIsRecalibrationOpen(false);
   }
 
-  function completeOnboarding(importedTasks: TaskInput[], _referencePressure: number, calibration: PressureCalibrationSnapshot) {
+  function completeOnboarding(importedTasks: TaskInput[], referencePressure: number, _calibration: PressureCalibrationSnapshot) {
     const createdTasks = importedTasks.map((task) => createTask(task));
     const nextTasks = [...createdTasks, ...normalizedTasks];
+    const calibration = createPressureCalibration(referencePressure, nextTasks, 0, new Date().toISOString());
     setTasks(nextTasks);
     setPressureCalibration(calibration);
     unlockAchievement('first-manageable-pressure');
-    recordPressureSnapshot('recalibration', nextTasks, '完成初始压力校准。', calibration);
-    savePressure({ baselinePressure: calibration.referencePressure });
+    recordPressureSnapshot('recalibration', nextTasks, `用户将主观压力重新校准为 ${calibration.lastSubjectivePressure}，系统已更新压力映射系数。`, calibration);
+    savePressure({ baselinePressure: calibration.lastSubjectivePressure, calibration });
     setOnboardingComplete(true);
   }
 

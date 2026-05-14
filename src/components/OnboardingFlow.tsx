@@ -24,7 +24,7 @@ function createDraftTask(title: string): TaskInput {
 function calculateInitialTaskLoad(tasks: TaskInput[]): number {
   return tasks.reduce((sum, task) => {
     if (task.lifecycleStatus !== 'active') return sum;
-    return sum + getUrgencyWeight(task.deadline) * (0.8 + task.importance / 2);
+    return sum + getUrgencyWeight(task.deadline) * task.importance;
   }, 0);
 }
 
