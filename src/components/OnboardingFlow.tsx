@@ -8,6 +8,11 @@ interface OnboardingCompleteResult {
   error?: string;
 }
 
+interface OnboardingCompleteResult {
+  ok: boolean;
+  error?: string;
+}
+
 interface OnboardingFlowProps {
   onComplete: (tasks: TaskInput[], referencePressure: number, calibration: PressureCalibrationSnapshot) => OnboardingCompleteResult | Promise<OnboardingCompleteResult>;
 }
