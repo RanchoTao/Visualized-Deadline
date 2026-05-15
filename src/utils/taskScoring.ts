@@ -1,5 +1,5 @@
 import { calculateRawPressure, calculateRealtimePressure, calculateTaskPressure, calculateUrgency, calibratePressure } from '../lib/pressureEngine';
-import type { ActivityType, Achievement, Importance, LifecycleStatus, PressureBreakdown, PressureCalibrationSnapshot, PressureState, Task } from '../types/task';
+import type { ActivityType, AchievementDefinition, Importance, LifecycleStatus, PressureBreakdown, PressureCalibrationSnapshot, PressureState, Task } from '../types/task';
 
 const MS_PER_HOUR = 60 * 60 * 1000;
 const MS_PER_DAY = 24 * MS_PER_HOUR;
@@ -299,21 +299,34 @@ export function getPressureInterpretation(totalPressure: number): string {
   return '过载';
 }
 
-export const achievementCatalog: Omit<Achievement, 'unlockedAt'>[] = [
-  { id: 'first-entry', title: '初见', description: '你第一次把生活压力放进 VD。系统开始记住你如何活着。' },
-  { id: 'first-task-completed', title: '闭环', description: '一件事被完成。不是胜利，只是一个回路终于合上。' },
-  { id: 'first-manageable-pressure', title: '首次校准', description: '你承认了此刻的压力，并让系统重新贴近真实体感。' },
-  { id: 'ai-first-connection', title: '流水线', description: '外部模型接入。你的任务开始进入另一条认知流水线。' },
-  { id: 'ai-report-generated', title: '第三人称', description: '你第一次从旁观者视角看见自己的任务结构。' },
-  { id: 'roadmap-generated', title: '为您导航', description: '长期目标获得路线。方向不等于命运，但至少不再是一团雾。' },
-  { id: 'social-graph-opened', title: '我爱的人们', description: '你打开关系图谱，把那些重要的人从记忆噪声里重新标出来。' },
-  { id: 'life-tree-opened', title: '系统已启动', description: '你进入人生结构视图。VD 开始像系统一样观察你的生活。' },
-  { id: 'first-six-in-day', title: '六发左轮', description: '同一天连续闭环 6 件事。效率有时像武器，也像风险。' },
-  { id: 'seven-day-streak', title: '七日杀', description: '你连续 7 天回到 VD。习惯开始留下可追踪的痕迹。' },
-  { id: 'first-low-value-abandoned', title: '断舍离', description: '你主动放弃低价值事项，为真正重要的任务释放空间。' },
-  { id: 'last-survivor', title: '最后生还者', description: '你在最后一小时内完成了高重要性任务。活下来了，但系统记住了这次贴线。' },
-  { id: 'knife-edge-streak', title: '刀尖舔血', description: '连续 10 次在最后一小时闭环。你不是在管理时间，你是在和时间互相威胁。' },
-  { id: 'rotting', title: '摆烂', description: '逾期任务超过 5 个。系统不审判，只记录这段坍缩。' },
-  { id: 'hedonism', title: '享乐主义', description: '娱乐型事项达到 5 个。恢复、逃避和快乐有时长得很像。' },
-  { id: 'pressure-cooker', title: '高压锅', description: '压力连续 3 天停留在 100 以上。你需要的可能不是更努力，而是泄压阀。' },
+export const achievementCatalog: AchievementDefinition[] = [
+  { id: 'first-entry', title: '初见', shortDescription: '第一次来到可视。', description: '第一次来到可视。', unlockCondition: '第一次使用VD', category: 'system-initialization' },
+  { id: 'first-task-completed', title: '闭环', shortDescription: '从开始到完成，你实现了闭环。', description: '从开始到完成，你实现了闭环。', unlockCondition: '第一次完成任务', category: 'execution-efficiency' },
+  { id: 'first-manageable-pressure', title: '首次校准', shortDescription: '你看到了自己真实的压力，系统也看到了你。', description: '你看到了自己真实的压力，系统也看到了你。', unlockCondition: '第一次校准压力', category: 'pressure-mental-state' },
+  { id: 'ai-first-connection', title: '流水线', shortDescription: '现在是AI时代，带上你的API，我们走！', description: '现在是AI时代，带上你的API，我们走！', unlockCondition: '第一次接入API KEY', category: 'system-initialization' },
+  { id: 'second-calibration', title: '回正', shortDescription: '第二次校准后，你知道自己在哪。', description: '第二次校准后，你知道自己在哪。', unlockCondition: '第二次校准压力', category: 'pressure-mental-state' },
+  { id: 'ai-report-generated', title: '第三人称', shortDescription: '第一次从旁观者视角看见自己的任务结构。', description: '第一次从旁观者视角看见自己的任务结构。', unlockCondition: '第一次产生AI分析报告', category: 'philosophy-worldview' },
+  { id: 'roadmap-generated', title: '为您导航', shortDescription: '系统开始尝试理解你的长期路线。', description: '系统开始尝试理解你的长期路线。', unlockCondition: '第一次使用“长期目标”制定路线图', category: 'life-milestones' },
+  { id: 'social-graph-opened', title: '我爱的人们', shortDescription: '你们对我很重要。', description: '你们对我很重要。', unlockCondition: '第一次在社交中新增联系人', category: 'social-relationships' },
+  { id: 'life-tree-opened', title: '系统已启动', shortDescription: '现在，你拥有自己的“系统”了。', description: '现在，你拥有自己的“系统”了。', unlockCondition: '首次打开人生页面', category: 'system-initialization' },
+  { id: 'first-six-in-day', title: '六发左轮', shortDescription: '弹无虚发。', description: '弹无虚发。', unlockCondition: '同一天内完成六件任务', category: 'execution-efficiency' },
+  { id: 'seven-day-streak', title: '七日杀', shortDescription: '上帝创造世界用了七天。', description: '上帝创造世界用了七天。', unlockCondition: '连续使用七天VD', category: 'system-initialization' },
+  { id: 'first-low-value-abandoned', title: '断舍离', shortDescription: '当断不断，反受其乱。', description: '当断不断，反受其乱。', unlockCondition: '第一次放弃任务', category: 'philosophy-worldview' },
+  { id: 'last-survivor', title: '最后生还者', shortDescription: '你挑战了极限，并且活下来了。', description: '你挑战了极限，并且活下来了。', unlockCondition: '在高重要程度任务截止前最后一小时完成。', category: 'pressure-mental-state' },
+  { id: 'knife-edge-streak', title: '刀尖舔血', shortDescription: '你不是在管理时间，你是在和时间相互威胁。', description: '你不是在管理时间，你是在和时间相互威胁。', unlockCondition: '连续十次在最后一小时内完成任务', category: 'pressure-mental-state' },
+  { id: 'rotting', title: '摆烂', shortDescription: '那还说啥了，摆就完事儿了！', description: '那还说啥了，摆就完事儿了！', unlockCondition: '逾期任务超过五个', category: 'pressure-mental-state' },
+  { id: 'hedonism', title: '享乐主义', shortDescription: '能活一天是一天！不死就是玩！', description: '能活一天是一天！不死就是玩！', unlockCondition: '娱乐事项大于等于五个', category: 'philosophy-worldview' },
+  { id: 'pressure-cooker', title: '高压锅', shortDescription: '你需要的可能不是更努力，而是泄压阀。', description: '你需要的可能不是更努力，而是泄压阀。', unlockCondition: '压力连续三天停留在100以上', category: 'pressure-mental-state' },
+  { id: 'beijing-four-am', title: '凌晨四点的北京', shortDescription: '你见过凌晨四点的北京吗？', description: '你见过凌晨四点的北京吗？', unlockCondition: '学习/工作到凌晨四点', category: 'execution-efficiency' },
+  { id: 'top-of-the-world', title: '世界之巅', shortDescription: 'I am the King of the world!', description: 'I am the King of the world!', unlockCondition: '登上珠穆朗玛峰', category: 'life-milestones' },
+  { id: 'end-of-the-world', title: '世界尽头', shortDescription: '极寒的白色荒漠。', description: '极寒的白色荒漠。', unlockCondition: '来到南极', category: 'life-milestones' },
+  { id: 'speed-of-life', title: '生死时速', shortDescription: '速度与激情！', description: '速度与激情！', unlockCondition: '陆地移动速度超过300km/h', category: 'life-milestones' },
+  { id: 'hello-world', title: '你好，世界！', shortDescription: 'Hello, world!', description: 'Hello, world!', unlockCondition: '首次敲下 hello world 代码', category: 'abstract-easter-eggs' },
+  { id: 'sharp-head', title: '你头顶怎么尖尖的？', shortDescription: '健美圈传来噩耗...', description: '健美圈传来噩耗...', unlockCondition: '使用类固醇', category: 'physical-biological' },
+  { id: 'heaven-on-earth', title: '天上人间', shortDescription: '这个美啊~', description: '这个美啊~', unlockCondition: '第一次去洗浴中心', category: 'life-milestones' },
+  { id: 'tropical-iced-tea', title: '热带风味冰红茶', shortDescription: '时序逻辑。', description: '时序逻辑。', unlockCondition: '第一次经历期末周', category: 'abstract-easter-eggs' },
+  { id: 'iced-coke', title: '冰镇可乐', shortDescription: '方程式的解，世界的顶点，生命的答案。', description: '方程式的解，世界的顶点，生命的答案。', unlockCondition: '第一次喝冰镇铝罐可口可乐', category: 'philosophy-worldview' },
+  { id: 'first-million', title: '第一桶金', shortDescription: '认知与财富对等。', description: '认知与财富对等。', unlockCondition: '个人流动资产 ≥ 100万', category: 'finance-survival' },
+  { id: 'snowball', title: '滚雪球', shortDescription: '利滚利滚利滚利~', description: '利滚利滚利滚利~', unlockCondition: '连续十二个月正收益', category: 'finance-survival' },
+  { id: 'system-overload', title: '系统过载', shortDescription: 'WARNING！！！', description: 'WARNING！！！', unlockCondition: '压力值首次超过100', category: 'pressure-mental-state' },
 ];
