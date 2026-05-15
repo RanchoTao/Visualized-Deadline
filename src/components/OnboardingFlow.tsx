@@ -1,19 +1,23 @@
-import { FormEvent, useMemo, useState } from 'react';
-import type { ActivityType, Importance, LifecycleStatus, PressureCalibrationSnapshot, TaskInput } from '../types/task';
+import { FormEvent, useState } from 'react';
+import type { Importance, LifecycleStatus, PressureCalibrationSnapshot, TaskInput } from '../types/task';
 import { toDatetimeLocalValue } from '../utils/date';
-import { clampImportance, clampPressure, clampProgress, createPressureCalibration, getActivityTypeLabel, getUrgencyWeight } from '../utils/taskScoring';
+import { clampPressure, clampProgress, createPressureCalibration, getUrgencyWeight } from '../utils/taskScoring';
 
-interface OnboardingFlowProps {
-  onComplete: (tasks: TaskInput[], referencePressure: number, calibration: PressureCalibrationSnapshot) => void;
+interface OnboardingCompleteResult {
+  ok: boolean;
+  error?: string;
 }
 
-const activityTypes: ActivityType[] = ['task', 'schedule', 'study', 'fitness', 'social', 'recovery', 'entertainment', 'other'];
+interface OnboardingFlowProps {
+  onComplete: (tasks: TaskInput[], referencePressure: number, calibration: PressureCalibrationSnapshot) => OnboardingCompleteResult | Promise<OnboardingCompleteResult>;
+}
+
 
 function createDraftTask(title: string): TaskInput {
   return {
     title,
     description: '',
-    importance: 6,
+    importance: 1,
     deadline: toDatetimeLocalValue(new Date(Date.now() + 24 * 60 * 60 * 1000)),
     progress: 0,
     activityType: 'task',
@@ -21,10 +25,20 @@ function createDraftTask(title: string): TaskInput {
   };
 }
 
+function clampOnboardingImportance(importance?: number | null): Importance {
+  if (typeof importance !== 'number' || Number.isNaN(importance)) return 1;
+  return Math.min(10, Math.max(1, Math.round(importance))) as Importance;
+}
+
+function hasValidDeadline(deadline?: string): boolean {
+  return Boolean(deadline && Number.isFinite(new Date(deadline).getTime()));
+}
+
 function calculateInitialTaskLoad(tasks: TaskInput[]): number {
   return tasks.reduce((sum, task) => {
     if (task.lifecycleStatus !== 'active') return sum;
-    return sum + getUrgencyWeight(task.deadline) * task.importance;
+    const progressNormalized = clampProgress(task.progress) / 100;
+    return sum + getUrgencyWeight(task.deadline) * clampOnboardingImportance(task.importance) * (1 - progressNormalized);
   }, 0);
 }
 
@@ -34,8 +48,9 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [roughTitles, setRoughTitles] = useState<string[]>([]);
   const [referencePressure, setReferencePressure] = useState(35);
   const [draftTasks, setDraftTasks] = useState<TaskInput[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const canContinueDump = roughTitles.length > 0;
-  const initialTaskLoad = useMemo(() => calculateInitialTaskLoad(draftTasks), [draftTasks]);
 
   function addRoughTitle(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
@@ -55,19 +70,69 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     setDraftTasks((current) => current.map((task, taskIndex) => (taskIndex === index ? { ...task, ...values } : task)));
   }
 
-  function completeOnboarding() {
+  async function completeOnboarding() {
+    if (isSubmitting) return;
+    setSubmitError('');
     const refinedTasks = draftTasks.map((task) => ({
       ...task,
-      title: task.title.trim() || '未命名项目',
-      description: task.description?.trim() || undefined,
-      importance: clampImportance(task.importance),
-      progress: clampProgress(task.progress),
+      title: task.title.trim(),
+      description: '',
+      importance: clampOnboardingImportance(task.importance),
+      progress: 0,
+      activityType: 'task' as const,
       lifecycleStatus: 'active' as LifecycleStatus,
     }));
 
-    // Future versions can compare this initial load with later user behavior to learn
-    // personalized urgency/importance weighting. No machine learning is implemented here.
-    onComplete(refinedTasks, referencePressure, createPressureCalibration(referencePressure, initialTaskLoad, refinedTasks.length));
+    const validTasks = refinedTasks.filter((task) => task.title.trim() && hasValidDeadline(task.deadline) && task.lifecycleStatus === 'active' && task.progress < 100);
+    const safeReferencePressure = clampPressure(referencePressure);
+    const totalTaskPressure = calculateInitialTaskLoad(refinedTasks);
+
+    console.info('[VD_ONBOARDING] submit started');
+    console.info('[VD_ONBOARDING] tasks before save', refinedTasks);
+    console.info('[VD_ONBOARDING] subjectivePressure before calibration', safeReferencePressure);
+    console.info('[VD_ONBOARDING] totalTaskPressure', totalTaskPressure);
+
+    if (refinedTasks.some((task) => !task.title.trim())) {
+      setSubmitError('任务名称不能为空。');
+      return;
+    }
+
+    if (refinedTasks.some((task) => !hasValidDeadline(task.deadline))) {
+      setSubmitError('请为每个任务设置有效截止时间。');
+      return;
+    }
+
+    if (validTasks.length === 0) {
+      setSubmitError('请至少保留一个未完成的有效任务后再进入 VD。');
+      return;
+    }
+
+    if (!Number.isFinite(safeReferencePressure)) {
+      setSubmitError('主观压力数值无效，请重新选择。');
+      return;
+    }
+
+    if (totalTaskPressure <= 0) {
+      setSubmitError('当前任务压力为 0，无法完成校准。请检查任务名称、重要程度或截止时间。');
+      return;
+    }
+
+    const calibration = createPressureCalibration(safeReferencePressure, totalTaskPressure, refinedTasks.length);
+    console.info('[VD_ONBOARDING] pressureCoefficient', calibration.pressureCoefficient);
+    console.info('[VD_ONBOARDING] realtimePressure', totalTaskPressure * calibration.pressureCoefficient);
+
+    try {
+      setIsSubmitting(true);
+      const result = await onComplete(refinedTasks, safeReferencePressure, calibration);
+      if (!result.ok) {
+        setSubmitError(result.error || '保存失败，请稍后重试。');
+      }
+    } catch (error) {
+      console.error('[VD_ONBOARDING] onboarding submit failed', error);
+      setSubmitError(error instanceof Error ? error.message : '保存失败，请稍后重试。');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -127,20 +192,33 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             <div className="mt-6 space-y-4">
               {draftTasks.map((task, index) => (
                 <article key={`${task.title}-${index}`} className="rounded-3xl bg-slate-50/80 p-4 ring-1 ring-white/80">
-                  <input value={task.title} onChange={(event) => updateDraftTask(index, { title: event.target.value })} className="w-full rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3 font-semibold outline-none focus:border-sky-200 focus:ring-4 focus:ring-sky-100/70" />
-                  <textarea value={task.description ?? ''} onChange={(event) => updateDraftTask(index, { description: event.target.value })} className="mt-3 min-h-20 w-full rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3 text-sm outline-none focus:border-sky-200 focus:ring-4 focus:ring-sky-100/70" placeholder="描述（可选）" />
-                  <div className="mt-3 grid gap-3 md:grid-cols-4">
-                    <label className="text-xs font-medium text-slate-500">重要性<input type="number" min="1" max="10" value={task.importance} onChange={(event) => updateDraftTask(index, { importance: Number(event.target.value) as Importance })} className="mt-1 w-full rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-2 text-sm" /></label>
-                    <label className="text-xs font-medium text-slate-500">截止时间<input type="datetime-local" value={task.deadline ?? ''} onChange={(event) => updateDraftTask(index, { deadline: event.target.value })} className="mt-1 w-full rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-2 text-sm" /></label>
-                    <label className="text-xs font-medium text-slate-500">进度<input type="number" min="0" max="100" value={task.progress} onChange={(event) => updateDraftTask(index, { progress: clampProgress(Number(event.target.value)) })} className="mt-1 w-full rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-2 text-sm" /></label>
-                    <label className="text-xs font-medium text-slate-500">类型<select value={task.activityType} onChange={(event) => updateDraftTask(index, { activityType: event.target.value as ActivityType })} className="mt-1 w-full rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-2 text-sm">{activityTypes.map((activityType) => <option key={activityType} value={activityType}>{getActivityTypeLabel(activityType)}</option>)}</select></label>
+                  <label className="text-xs font-medium text-slate-500">
+                    任务名称
+                    <input required value={task.title} onChange={(event) => updateDraftTask(index, { title: event.target.value })} className="mt-1 w-full rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3 font-semibold outline-none focus:border-sky-200 focus:ring-4 focus:ring-sky-100/70" />
+                  </label>
+                  <div className="mt-4 grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
+                    <label className="text-xs font-medium text-slate-500">
+                      <span className="flex items-center justify-between gap-3">
+                        <span>重要程度（1-10）</span>
+                        <span className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-slate-800 ring-1 ring-slate-200">{clampOnboardingImportance(task.importance)}</span>
+                      </span>
+                      <input type="range" min="1" max="10" step="1" value={clampOnboardingImportance(task.importance)} onChange={(event) => updateDraftTask(index, { importance: clampOnboardingImportance(Number(event.target.value)) })} className="mt-3 w-full accent-slate-700" />
+                      <span className="mt-2 flex justify-between text-[11px] text-slate-400"><span>不重要（1）</span><span>非常重要（10）</span></span>
+                    </label>
+                    <label className="text-xs font-medium text-slate-500">
+                      截止时间
+                      <input required type="datetime-local" value={task.deadline ?? ''} onChange={(event) => updateDraftTask(index, { deadline: event.target.value })} className="mt-1 w-full rounded-2xl border border-slate-200/80 bg-white/90 px-3 py-2 text-sm" />
+                    </label>
                   </div>
                 </article>
               ))}
             </div>
             <div className="mt-8 flex justify-between gap-3">
               <button type="button" onClick={() => setStep(2)} className="rounded-full px-5 py-3 text-sm font-semibold text-slate-500 hover:bg-slate-100">返回</button>
-              <button type="button" onClick={completeOnboarding} className="rounded-full bg-white/85 px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50">进入 VD</button>
+              <div className="flex flex-col items-end gap-2">
+                {submitError ? <p className="max-w-md rounded-2xl bg-rose-50 px-4 py-2 text-sm text-rose-700 ring-1 ring-rose-100">{submitError}</p> : null}
+                <button type="button" onClick={completeOnboarding} disabled={isSubmitting} className="rounded-full bg-white/85 px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300">{isSubmitting ? '保存中…' : '进入 VD'}</button>
+              </div>
             </div>
           </div>
         ) : null}

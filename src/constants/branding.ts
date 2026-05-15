@@ -1,7 +1,7 @@
 export const branding = {
   organizationName: 'Flysoon Labs',
   productName: 'Visual Deadline',
-  tagline: '年轻人的成长操作系统',
+  tagline: '可视：人生操作系统',
   version: '1.0.1',
   author: 'RanchoTao',
   githubRepo: 'RanchoTao/Visualized-Deadline',
