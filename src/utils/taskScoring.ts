@@ -1,5 +1,5 @@
 import { calculateRawPressure, calculateRealtimePressure, calculateTaskPressure, calculateUrgency, calibratePressure } from '../lib/pressureEngine';
-import type { ActivityType, Achievement, Importance, LifecycleStatus, PressureBreakdown, PressureCalibrationSnapshot, PressureState, Task } from '../types/task';
+import type { ActivityType, AchievementCategory, AchievementDefinition, Importance, LifecycleStatus, PressureBreakdown, PressureCalibrationSnapshot, PressureState, Task } from '../types/task';
 
 const MS_PER_HOUR = 60 * 60 * 1000;
 const MS_PER_DAY = 24 * MS_PER_HOUR;
@@ -299,21 +299,75 @@ export function getPressureInterpretation(totalPressure: number): string {
   return '过载';
 }
 
-export const achievementCatalog: Omit<Achievement, 'unlockedAt'>[] = [
-  { id: 'first-entry', title: '初见', description: '你第一次把生活压力放进 VD。系统开始记住你如何活着。' },
-  { id: 'first-task-completed', title: '闭环', description: '一件事被完成。不是胜利，只是一个回路终于合上。' },
-  { id: 'first-manageable-pressure', title: '首次校准', description: '你承认了此刻的压力，并让系统重新贴近真实体感。' },
-  { id: 'ai-first-connection', title: '流水线', description: '外部模型接入。你的任务开始进入另一条认知流水线。' },
-  { id: 'ai-report-generated', title: '第三人称', description: '你第一次从旁观者视角看见自己的任务结构。' },
-  { id: 'roadmap-generated', title: '为您导航', description: '长期目标获得路线。方向不等于命运，但至少不再是一团雾。' },
-  { id: 'social-graph-opened', title: '我爱的人们', description: '你打开关系图谱，把那些重要的人从记忆噪声里重新标出来。' },
-  { id: 'life-tree-opened', title: '系统已启动', description: '你进入人生结构视图。VD 开始像系统一样观察你的生活。' },
-  { id: 'first-six-in-day', title: '六发左轮', description: '同一天连续闭环 6 件事。效率有时像武器，也像风险。' },
-  { id: 'seven-day-streak', title: '七日杀', description: '你连续 7 天回到 VD。习惯开始留下可追踪的痕迹。' },
-  { id: 'first-low-value-abandoned', title: '断舍离', description: '你主动放弃低价值事项，为真正重要的任务释放空间。' },
-  { id: 'last-survivor', title: '最后生还者', description: '你在最后一小时内完成了高重要性任务。活下来了，但系统记住了这次贴线。' },
-  { id: 'knife-edge-streak', title: '刀尖舔血', description: '连续 10 次在最后一小时闭环。你不是在管理时间，你是在和时间互相威胁。' },
-  { id: 'rotting', title: '摆烂', description: '逾期任务超过 5 个。系统不审判，只记录这段坍缩。' },
-  { id: 'hedonism', title: '享乐主义', description: '娱乐型事项达到 5 个。恢复、逃避和快乐有时长得很像。' },
-  { id: 'pressure-cooker', title: '高压锅', description: '压力连续 3 天停留在 100 以上。你需要的可能不是更努力，而是泄压阀。' },
+const defaultHiddenNarrativeTone = '系统冷静命名这一段生命状态。';
+
+function defineAchievement(id: string, title: string, shortDescription: string, unlockCondition: string, category: AchievementCategory): AchievementDefinition {
+  return {
+    id,
+    title,
+    shortDescription,
+    description: shortDescription,
+    unlockCondition,
+    category,
+    hiddenNarrativeTone: defaultHiddenNarrativeTone,
+    unlockTime: undefined,
+    rarityLevel: undefined,
+    relatedStats: [],
+  };
+}
+
+export const achievementCatalog: AchievementDefinition[] = [
+  defineAchievement('first-entry', '初见', '第一次来到可视。', '第一次使用VD', 'system-initialization'),
+  defineAchievement('first-task-completed', '闭环', '从开始到完成，你实现了闭环。', '第一次完成任务', 'execution-efficiency'),
+  defineAchievement('first-manageable-pressure', '首次校准', '你看到了自己真实的压力，系统也看到了你。', '第一次校准压力', 'pressure-mental-state'),
+  defineAchievement('ai-first-connection', '流水线', '现在是AI时代，带上你的API，我们走！', '第一次接入API KEY', 'system-initialization'),
+  defineAchievement('second-calibration', '回正', '第二次校准后，你知道自己在哪。', '第二次校准压力', 'pressure-mental-state'),
+  defineAchievement('ai-report-generated', '第三人称', '第一次从旁观者视角看见自己的任务结构。', '第一次产生AI分析报告', 'philosophy-worldview'),
+  defineAchievement('roadmap-generated', '为您导航', '系统开始尝试理解你的长期路线。', '第一次使用“长期目标”制定路线图', 'life-milestones'),
+  defineAchievement('social-graph-opened', '我爱的人们', '你们对我很重要。', '第一次在社交中新增联系人', 'social-relationships'),
+  defineAchievement('life-tree-opened', '系统已启动', '现在，你拥有自己的“系统”了。', '首次打开人生页面', 'system-initialization'),
+  defineAchievement('first-six-in-day', '六发左轮', '弹无虚发。', '同一天内完成六件任务', 'execution-efficiency'),
+  defineAchievement('seven-day-streak', '七日杀', '上帝创造世界用了七天。', '连续使用七天VD', 'system-initialization'),
+  defineAchievement('first-low-value-abandoned', '断舍离', '当断不断，反受其乱。', '第一次放弃任务', 'philosophy-worldview'),
+  defineAchievement('last-survivor', '最后生还者', '你挑战了极限，并且活下来了。', '在高重要程度任务截止前最后一小时完成。', 'pressure-mental-state'),
+  defineAchievement('knife-edge-streak', '刀尖舔血', '你不是在管理时间，你是在和时间相互威胁。', '连续十次在最后一小时内完成任务', 'pressure-mental-state'),
+  defineAchievement('rotting', '摆烂', '那还说啥了，摆就完事儿了！', '逾期任务超过五个', 'pressure-mental-state'),
+  defineAchievement('hedonism', '享乐主义', '能活一天是一天！不死就是玩！', '娱乐事项大于等于五个', 'philosophy-worldview'),
+  defineAchievement('pressure-cooker', '高压锅', '你需要的可能不是更努力，而是泄压阀。', '压力连续三天停留在100以上', 'pressure-mental-state'),
+  defineAchievement('beijing-four-am', '凌晨四点的北京', '你见过凌晨四点的北京吗？', '学习/工作到凌晨四点', 'execution-efficiency'),
+  defineAchievement('top-of-the-world', '世界之巅', 'I am the King of the world!', '登上珠穆朗玛峰', 'life-milestones'),
+  defineAchievement('end-of-the-world', '世界尽头', '极寒的白色荒漠。', '来到南极', 'life-milestones'),
+  defineAchievement('speed-of-life', '生死时速', '速度与激情！', '陆地移动速度超过300km/h', 'life-milestones'),
+  defineAchievement('hello-world', '你好，世界！', 'Hello, world!', '首次敲下 hello world 代码', 'abstract-easter-eggs'),
+  defineAchievement('sharp-head', '你头顶怎么尖尖的？', '健美圈传来噩耗...', '使用类固醇', 'physical-biological'),
+  defineAchievement('heaven-on-earth', '天上人间', '这个美啊~', '第一次去洗浴中心', 'life-milestones'),
+  defineAchievement('tropical-iced-tea', '热带风味冰红茶', '时序逻辑。', '第一次经历期末周', 'abstract-easter-eggs'),
+  defineAchievement('iced-coke', '冰镇可乐', '方程式的解，世界的顶点，生命的答案。', '第一次喝冰镇铝罐可口可乐', 'philosophy-worldview'),
+  defineAchievement('first-million', '第一桶金', '认知与财富对等。', '个人流动资产 ≥ 100万', 'finance-survival'),
+  defineAchievement('snowball', '滚雪球', '利滚利滚利滚利~', '连续十二个月正收益', 'finance-survival'),
+  defineAchievement('system-overload', '系统过载', 'WARNING！！！', '压力值首次超过100', 'pressure-mental-state'),
+  defineAchievement('left-on-read', '已读不回', '搁浅的爱。', 'Read messages from an object with favorability > 80 and do not reply for 24 hours.', 'social-relationships'),
+  defineAchievement('fantasy-time', '幻想时间', '现在是，幻想时间！', 'Create more than 20 new tasks within one day.', 'execution-efficiency'),
+  defineAchievement('nice-guy-card', '好人卡', 'What can I say？', 'First time being told “你是一个好人”.', 'social-relationships'),
+  defineAchievement('peach-blossom-season', '桃花期', '难道她喜欢我？', 'Continuously meet five new opposite-sex people of similar age within a short cycle.', 'social-relationships'),
+  defineAchievement('world-line-convergence', '世界线收束', '一切都是命运石之门的选择。', 'First time completing a long-term goal.', 'life-milestones'),
+  defineAchievement('young-and-accomplished', '年少有为', '假如我年少有为不自卑。', 'Achieve major fame or elite accomplishment before age 20 (example: olympiad gold medal / top national examination ranking).', 'life-milestones'),
+  defineAchievement('long-termist', '长期主义者', '时间会替你说话。', 'Remain continuously focused on the same field for ten years.', 'philosophy-worldview'),
+  defineAchievement('around-the-world', '环游世界', '行万里路。', 'Travel across major regions of the world and visit globally recognized countries.', 'life-milestones'),
+  defineAchievement('genius', '天才', '百分之一的灵感和百分之九十九的汗水。', 'Create breakthrough-level achievement in a field recognized by society.', 'philosophy-worldview'),
+  defineAchievement('fortune-scattered', '千金散尽', '烹羊宰牛且为乐，会须一饮三百杯。', 'Spend more than one million in a single day.', 'finance-survival'),
+  defineAchievement('one-in-ten-thousand', '万里挑一', '谁还不是个状元？', 'Reach top 0.01% ranking in major examinations.', 'life-milestones'),
+  defineAchievement('unrecognized-talent', '怀才不遇', '被贬了，该写诗。', 'Long-term capability level significantly exceeds current social status or outcome.', 'pressure-mental-state'),
+  defineAchievement('abstract-school', '抽象派', '著名行为艺术家。', 'Record behavior significantly deviating from common social logic (example: washing hair upside down).', 'abstract-easter-eggs'),
+  defineAchievement('lifeline', '生命线', '生命的脆弱。', 'First ICU hospitalization experience.', 'physical-biological'),
+  defineAchievement('infinite-progress', '无限进步', '你还在向上。', 'Achieve major self-growth during every important life stage transition.', 'philosophy-worldview'),
+  defineAchievement('forbidden-fruit', '偷食禁果', '禁忌。', 'First sexual experience.', 'physical-biological'),
+  defineAchievement('safety-measures', '安全措施', '注意安全。', 'First accidental pregnancy event.', 'physical-biological'),
+  defineAchievement('unattainable-love', '爱而不得', '差一点。', 'First long-term unrequited love experience.', 'social-relationships'),
+  defineAchievement('brief-romance', '露水情缘', '短暂地拥有过彼此。', 'First short-term romantic relationship.', 'social-relationships'),
+  defineAchievement('finding-self', '找自己', '你终于开始回头看自己。', 'First complete life review / self-history reflection.', 'philosophy-worldview'),
+  defineAchievement('laws-of-the-world', '世界运行的规律', '牛顿看见了苹果落下。', 'First systematic study of classical mechanics.', 'philosophy-worldview'),
+  defineAchievement('electricity-and-magnetism', '电与磁', '世界开始被统一。', 'First study of electromagnetism and Maxwell equations.', 'philosophy-worldview'),
+  defineAchievement('days-and-months-fly', '日月如梭', '人类用钟表丈量生命。', 'Use VD continuously for 365 days.', 'system-initialization'),
+  defineAchievement('final-meeting', '最后一面', '有些见面，真的会是最后一次。', 'First experience facing the death of another important person.', 'social-relationships'),
 ];

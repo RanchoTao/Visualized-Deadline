@@ -97,10 +97,31 @@ export interface PressureBreakdown {
   recommendation: string;
 }
 
-export interface Achievement {
+export type AchievementCategory =
+  | 'system-initialization'
+  | 'execution-efficiency'
+  | 'pressure-mental-state'
+  | 'social-relationships'
+  | 'finance-survival'
+  | 'life-milestones'
+  | 'physical-biological'
+  | 'philosophy-worldview'
+  | 'abstract-easter-eggs';
+
+export interface AchievementDefinition {
   id: string;
   title: string;
+  shortDescription: string;
   description: string;
+  unlockCondition: string;
+  category: AchievementCategory;
+  hiddenNarrativeTone: string;
+  unlockTime?: string;
+  rarityLevel?: string;
+  relatedStats?: string[];
+}
+
+export interface Achievement extends AchievementDefinition {
   unlockedAt: string;
 }
 
