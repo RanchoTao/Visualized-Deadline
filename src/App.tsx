@@ -7,9 +7,11 @@ import { LifeOSNav } from './components/LifeOSNav';
 import { LogPage } from './components/LogPage';
 import { OnboardingFlow } from './components/OnboardingFlow';
 import { ProfilePage } from './components/ProfilePage';
+import { PrivacyPolicyPage } from './components/PrivacyPolicyPage';
 import { TaskForm } from './components/TaskForm';
 import { SocialPage } from './components/SocialPage';
 import { TaskPage } from './components/TaskPage';
+import { TermsPlaceholderPage } from './components/TermsPlaceholderPage';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useSupabaseAuth } from './hooks/useSupabaseAuth';
 import type { Achievement, AIArtifact, AIArtifactInput, ActivityType, Goal, GoalInput, LifecycleStatus, LifeOSModule, PressureBreakdown, PressureCalibrationSnapshot, PressureHistoryEventType, PressureHistoryRecord, Task, TaskInput, UserProfile } from './types/task';
@@ -342,6 +344,7 @@ function createAchievement(id: string): Achievement | undefined {
 }
 
 function App() {
+  const [publicPath, setPublicPath] = useState(() => window.location.pathname);
   const { session, isLoading: isAuthLoading, error: authError, isConfigured: isSupabaseConfigured, signIn, signUp, signOut } = useSupabaseAuth();
   const [hasChosenGuestMode, setHasChosenGuestMode] = useState(false);
   const [cloudStatus, setCloudStatus] = useState<string | undefined>();
@@ -885,6 +888,21 @@ function App() {
   }
 
 
+
+  useEffect(() => {
+    function syncPublicPath() {
+      setPublicPath(window.location.pathname);
+    }
+
+    window.addEventListener('popstate', syncPublicPath);
+    return () => window.removeEventListener('popstate', syncPublicPath);
+  }, []);
+
+  function navigateHome() {
+    window.history.pushState({}, '', '/');
+    setPublicPath('/');
+  }
+
   const taskModule = (
     <TaskPage
       tasks={normalizedTasks}
@@ -910,6 +928,15 @@ function App() {
     log: <LogPage tasks={normalizedTasks} goals={normalizedGoals} profile={normalizedProfile} pressure={pressure} pressureHistory={normalizedPressureHistory} achievements={normalizedAchievements} aiArtifacts={normalizedAIArtifacts} onAIReportGenerated={(artifact) => { saveAIArtifact(artifact); unlockAchievement('ai-report-generated'); }} onDelete={deleteTask} onReviewNoteChange={updateReviewNote} />,
     me: <ProfilePage profile={normalizedProfile} onProfileChange={setProfile} />,
   };
+
+
+  if (publicPath === '/privacy' || publicPath === '/privacy.html') {
+    return <PrivacyPolicyPage onBack={navigateHome} />;
+  }
+
+  if (publicPath === '/terms') {
+    return <TermsPlaceholderPage onBack={navigateHome} />;
+  }
 
   if (!session && !hasChosenGuestMode) {
     return <AuthPanel isConfigured={isSupabaseConfigured} isLoading={isAuthLoading} error={authError} onSignIn={signIn} onSignUp={signUp} onContinueAsGuest={() => setHasChosenGuestMode(true)} />;
