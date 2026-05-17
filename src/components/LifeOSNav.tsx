@@ -1,4 +1,3 @@
-import logoUrl from '../../VisualDeadlineLOGO.png';
 import { branding } from '../constants/branding';
 import type { LifeOSModule, UserProfile } from '../types/task';
 
