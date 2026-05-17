@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import type { AIArtifactInput, Goal, GoalInput, Task } from '../types/task';
+import { GoalRoadmapPanel } from './GoalRoadmapPanel';
 
 type LifeTreeItem = {
   id: string;
@@ -83,7 +85,26 @@ function LifeNodeCard({ module, focused, onClick }: { module: LifeTreeItem; focu
   );
 }
 
-export function LifeMapPage() {
+interface LifeMapPageProps {
+  goals: Goal[];
+  tasks: Task[];
+  onSaveGoal: (input: GoalInput, goalId?: string) => void;
+  onDeleteGoal: (goalId: string) => void;
+  onRoadmapGenerated?: (artifact: AIArtifactInput) => void;
+}
+
+const lifeSystemSections = [
+  'Life Overview',
+  'Long-Term Goals',
+  'AI Roadmaps',
+  'Life Domains',
+  'Period Planning',
+  'Risk Warnings',
+  'Life Statistics',
+  'Growth Trends',
+];
+
+export function LifeMapPage({ goals, tasks, onSaveGoal, onDeleteGoal, onRoadmapGenerated }: LifeMapPageProps) {
   const [focusedModuleId, setFocusedModuleId] = useState<string | undefined>();
   const focusedModule = lifeModules.find((module) => module.id === focusedModuleId);
 
@@ -97,6 +118,16 @@ export function LifeMapPage() {
         </div>
         {focusedModule ? <button type="button" onClick={() => setFocusedModuleId(undefined)} className="rounded-full bg-white/85 px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50">返回人生总览</button> : null}
       </div>
+
+      <div className="grid gap-3 rounded-[2rem] border border-white/70 bg-white/65 p-4 shadow-xl shadow-slate-200/50 backdrop-blur md:grid-cols-4" aria-label="Life module structure">
+        {lifeSystemSections.map((section, index) => (
+          <div key={section} className={`rounded-2xl px-4 py-3 text-sm font-semibold ring-1 ${section === 'Long-Term Goals' ? 'bg-slate-950 text-white ring-slate-900' : 'bg-white/75 text-slate-600 ring-white/80'}`}>
+            <span className="mr-2 text-xs opacity-60">{index + 1}</span>{section}
+          </div>
+        ))}
+      </div>
+
+      <GoalRoadmapPanel goals={goals} tasks={tasks} onSaveGoal={onSaveGoal} onDeleteGoal={onDeleteGoal} onRoadmapGenerated={onRoadmapGenerated} />
 
       <div className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/75 p-5 shadow-xl shadow-slate-200/60 backdrop-blur">
         {!focusedModule ? (
