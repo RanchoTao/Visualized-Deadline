@@ -1,7 +1,6 @@
 import { branding } from '../constants/branding';
-import type { AIArtifactInput, Goal, GoalInput, PressureBreakdown, PressureHistoryRecord, Task } from '../types/task';
+import type { PressureBreakdown, PressureHistoryRecord, Task } from '../types/task';
 import { MiniTaskMatrix } from './MiniTaskMatrix';
-import { GoalRoadmapPanel } from './GoalRoadmapPanel';
 import { PressureCard } from './PressureCard';
 import { RecommendationCard } from './RecommendationCard';
 
@@ -10,22 +9,25 @@ interface HomePageProps {
   pressureHistory: PressureHistoryRecord[];
   recommendedTasks: Task[];
   activeTasks: Task[];
-  tasks: Task[];
-  goals: Goal[];
-  onSaveGoal: (input: GoalInput, goalId?: string) => void;
-  onDeleteGoal: (goalId: string) => void;
-  onRoadmapGenerated: (artifact: AIArtifactInput) => void;
   onRecalibrate: () => void;
   onOpenTasks: () => void;
 }
 
-export function HomePage({ pressure, pressureHistory, recommendedTasks, activeTasks, tasks, goals, onSaveGoal, onDeleteGoal, onRoadmapGenerated, onRecalibrate, onOpenTasks }: HomePageProps) {
+export function HomePage({ pressure, pressureHistory, recommendedTasks, activeTasks, onRecalibrate, onOpenTasks }: HomePageProps) {
   return (
     <section className="space-y-7 md:space-y-8">
+      <div className="rounded-[2rem] border border-white/70 bg-white/60 p-5 shadow-xl shadow-slate-200/50 backdrop-blur md:p-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold tracking-[0.24em] text-slate-400">HOME · EXECUTION LAYER</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">今日执行中枢</h1>
+          </div>
+          <p className="max-w-md text-sm leading-6 text-slate-500">只保留高频、短周期、可立即行动的信息：任务、优先级、压力与提醒。</p>
+        </div>
+      </div>
       <PressureCard pressure={pressure} history={pressureHistory} onRecalibrate={onRecalibrate} />
       <RecommendationCard tasks={recommendedTasks} pressure={pressure} />
       <MiniTaskMatrix tasks={activeTasks} onOpenTasks={onOpenTasks} />
-      <GoalRoadmapPanel goals={goals} tasks={tasks} onSaveGoal={onSaveGoal} onDeleteGoal={onDeleteGoal} onRoadmapGenerated={onRoadmapGenerated} />
 
       <section className="rounded-[1.5rem] border border-white/60 bg-white/45 px-4 py-3 text-xs text-slate-400 shadow-sm shadow-slate-200/40 backdrop-blur" aria-label="产品品牌信息">
         <div className="flex flex-wrap items-center justify-between gap-2">
