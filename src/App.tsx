@@ -39,6 +39,7 @@ const WELCOME_BACK_ACTIVE_WRITE_MS = 60 * 1000;
 
 const defaultProfile: UserProfile = {
   nickname: '',
+  username: '',
   height: '',
   weight: '',
   identity: '',
@@ -259,6 +260,7 @@ function normalizeProfile(profile: unknown): UserProfile {
 
   return {
     nickname: storedProfile.nickname ?? '',
+    username: storedProfile.username ?? '',
     height: storedProfile.height ?? '',
     weight: storedProfile.weight ?? '',
     identity: storedProfile.identity ?? '',
@@ -345,6 +347,7 @@ function App() {
   const { session, isLoading: isAuthLoading, error: authError, isConfigured: isSupabaseConfigured, signIn, signUp, signOut } = useSupabaseAuth();
   const [hasChosenGuestMode, setHasChosenGuestMode] = useState(false);
   const [cloudStatus, setCloudStatus] = useState<string | undefined>();
+  const [cloudToast, setCloudToast] = useState<string | undefined>();
   const [cloudError, setCloudError] = useState<string | undefined>();
   const [isCloudLoading, setIsCloudLoading] = useState(false);
   const [isCloudReady, setIsCloudReady] = useState(false);
@@ -388,7 +391,7 @@ function App() {
     return calculatePressureIndex(normalizedTasks, previewCalibration, legacyReferencePressure);
   }, [legacyReferencePressure, normalizedTasks, recalibrationPressure]);
 
-  const syncModeLabel = session ? `云同步：${session.user.email || session.user.id}` : '本地模式';
+  const syncStateLabel = cloudError || cloudStatus || (session ? (isCloudReady ? '云端已连接，数据在后台同步。' : '正在建立云端连接…') : '本地模式运行，登录后可启用云同步。');
 
   useEffect(() => {
     if (!session) {
@@ -426,7 +429,8 @@ function App() {
             onboardingComplete: cloudData.onboardingComplete ?? onboardingComplete,
           }, session),
         ]);
-        setCloudStatus('云端数据已读取，本机和导入数据已合并上传。');
+        setCloudStatus('已同步到云端');
+        setCloudToast('已同步到云端');
         window.setTimeout(() => {
           isApplyingCloudData.current = false;
         }, 0);
@@ -446,23 +450,23 @@ function App() {
 
   useEffect(() => {
     if (!session || !isCloudReady || isApplyingCloudData.current) return;
-    saveCloudTasks(normalizedTasks, session).then(() => setCloudStatus('任务已同步到 Supabase。')).catch((error) => setCloudError(error instanceof Error ? error.message : '任务云同步失败。'));
+    saveCloudTasks(normalizedTasks, session).then(() => setCloudStatus('已同步到云端')).catch((error) => setCloudError(error instanceof Error ? error.message : '任务云同步失败。'));
   }, [isCloudReady, normalizedTasks, session]);
 
   useEffect(() => {
     if (!session || !isCloudReady || isApplyingCloudData.current) return;
-    saveCloudGoals(normalizedGoals, session).then(() => setCloudStatus('目标已同步到 Supabase。')).catch((error) => setCloudError(error instanceof Error ? error.message : '目标云同步失败。'));
+    saveCloudGoals(normalizedGoals, session).then(() => setCloudStatus('已同步到云端')).catch((error) => setCloudError(error instanceof Error ? error.message : '目标云同步失败。'));
   }, [isCloudReady, normalizedGoals, session]);
 
   useEffect(() => {
     if (!session || !isCloudReady || isApplyingCloudData.current) return;
-    saveCloudPressureHistory(normalizedPressureHistory, session).then(() => setCloudStatus('压力历史已同步到 Supabase。')).catch((error) => setCloudError(error instanceof Error ? error.message : '压力历史云同步失败。'));
+    saveCloudPressureHistory(normalizedPressureHistory, session).then(() => setCloudStatus('已同步到云端')).catch((error) => setCloudError(error instanceof Error ? error.message : '压力历史云同步失败。'));
   }, [isCloudReady, normalizedPressureHistory, session]);
 
   useEffect(() => {
     if (!session || !isCloudReady || isApplyingCloudData.current) return;
     saveCloudProfile({ profile: normalizedProfile, pressureCalibration: normalizedPressureCalibration, onboardingComplete }, session)
-      .then(() => setCloudStatus('个人设置已同步到 Supabase。'))
+      .then(() => setCloudStatus('已同步到云端'))
       .catch((error) => setCloudError(error instanceof Error ? error.message : '个人设置云同步失败。'));
   }, [isCloudReady, normalizedPressureCalibration, normalizedProfile, onboardingComplete, session]);
 
@@ -524,6 +528,13 @@ function App() {
       setPressureHistory(normalizedPressureHistory);
     }
   }, [normalizedPressureHistory, pressureHistory, setPressureHistory]);
+
+
+  useEffect(() => {
+    if (!cloudToast) return;
+    const timeoutId = window.setTimeout(() => setCloudToast(undefined), 2600);
+    return () => window.clearTimeout(timeoutId);
+  }, [cloudToast]);
 
   useEffect(() => {
     if (!toastAchievement) return;
@@ -912,7 +923,7 @@ function App() {
   };
 
   if (!session && !hasChosenGuestMode) {
-    return <AuthPanel isConfigured={isSupabaseConfigured} isLoading={isAuthLoading} error={authError} onSignIn={signIn} onSignUp={signUp} onContinueAsGuest={() => setHasChosenGuestMode(true)} />;
+    return <AuthPanel isConfigured={isSupabaseConfigured} isLoading={isAuthLoading} error={authError} onSignIn={signIn} onSignUp={async (email, password, identity) => { setProfile({ ...normalizedProfile, ...identity }); return signUp(email, password, identity); }} onContinueAsGuest={() => setHasChosenGuestMode(true)} />;
   }
 
   return (
@@ -940,6 +951,11 @@ function App() {
           </section>
         </div>
       ) : null}
+      {cloudToast ? (
+        <div className="fixed left-1/2 top-5 z-[120] -translate-x-1/2 animate-soft-rise rounded-full border border-white/80 bg-slate-950/90 px-5 py-3 text-sm font-semibold text-white shadow-2xl shadow-slate-400/40 backdrop-blur" role="status">
+          {cloudToast}
+        </div>
+      ) : null}
       <AchievementToast achievement={toastAchievement} />
       {welcomeBackMessage ? (
         <aside className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-100/45 px-4 py-6 backdrop-blur-md" role="status">
@@ -963,18 +979,17 @@ function App() {
       ) : null}
 
       <div className="mx-auto max-w-6xl space-y-5 md:space-y-6">
-        <section className="flex flex-wrap items-center justify-between gap-3 rounded-[2rem] border border-white/70 bg-white/75 px-5 py-3 text-sm shadow-lg shadow-slate-200/50 backdrop-blur">
-          <div>
-            <p className="font-semibold text-slate-700">{syncModeLabel}</p>
-            <p className={`mt-1 text-xs ${cloudError ? 'text-rose-600' : 'text-slate-500'}`}>{cloudError || cloudStatus || (session ? '云同步准备中…' : '未登录时仅使用 localStorage，不会上传数据。')}</p>
-          </div>
-          {session ? (
-            <button type="button" onClick={signOut} disabled={isCloudLoading} className="rounded-full bg-white/85 px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300">退出登录</button>
-          ) : (
-            <button type="button" onClick={() => setHasChosenGuestMode(false)} className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white shadow-sm">登录同步</button>
-          )}
-        </section>
-        <LifeOSNav activeModule={activeModule} onModuleChange={setActiveModule} />
+        <LifeOSNav
+          activeModule={activeModule}
+          profile={normalizedProfile}
+          isSignedIn={Boolean(session)}
+          isCloudLoading={isCloudLoading}
+          syncStateLabel={syncStateLabel}
+          onModuleChange={setActiveModule}
+          onOpenProfile={() => setActiveModule('me')}
+          onSignIn={() => setHasChosenGuestMode(false)}
+          onSignOut={signOut}
+        />
         {moduleContent[activeModule]}
       </div>
     </main>
