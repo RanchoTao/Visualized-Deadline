@@ -1,11 +1,7 @@
-import appIconUrl from '../../visualdeadline-banner.png';
-
 const APP_NAME = 'Visual Deadline';
-const SHORT_APP_NAME = 'VD';
 const THEME_COLOR = '#f8fafc';
-const BACKGROUND_COLOR = '#f8fafc';
-
-let manifestObjectUrl: string | undefined;
+const LOGO_PATH = '/assets/images/branding/logo.png';
+const MANIFEST_PATH = '/site.webmanifest';
 
 function upsertMeta(name: string, content: string): void {
   let meta = document.head.querySelector<HTMLMetaElement>(`meta[name="${name}"]`);
@@ -28,35 +24,15 @@ function upsertLink(rel: string, href: string, attributes: Record<string, string
   Object.entries(attributes).forEach(([key, value]) => link.setAttribute(key, value));
 }
 
-function createManifestUrl(): string {
-  if (manifestObjectUrl) return manifestObjectUrl;
-
-  const manifest = {
-    name: APP_NAME,
-    short_name: SHORT_APP_NAME,
-    start_url: '/',
-    scope: '/',
-    display: 'standalone',
-    background_color: BACKGROUND_COLOR,
-    theme_color: THEME_COLOR,
-    icons: [
-      { src: appIconUrl, sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: appIconUrl, sizes: '512x512', type: 'image/png', purpose: 'any' },
-    ],
-  };
-
-  manifestObjectUrl = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' }));
-  return manifestObjectUrl;
-}
-
 export function configurePwaAssets(): void {
   upsertMeta('theme-color', THEME_COLOR);
   upsertMeta('mobile-web-app-capable', 'yes');
   upsertMeta('apple-mobile-web-app-capable', 'yes');
   upsertMeta('apple-mobile-web-app-title', APP_NAME);
   upsertMeta('apple-mobile-web-app-status-bar-style', 'default');
-  upsertLink('icon', appIconUrl, { type: 'image/png' });
-  upsertLink('shortcut icon', appIconUrl, { type: 'image/png' });
-  upsertLink('apple-touch-icon', appIconUrl, { sizes: '180x180' });
-  upsertLink('manifest', createManifestUrl());
+  // `logo.png` is the square app identity asset for browser/PWA icons.
+  upsertLink('icon', LOGO_PATH, { type: 'image/png' });
+  upsertLink('shortcut icon', LOGO_PATH, { type: 'image/png' });
+  upsertLink('apple-touch-icon', LOGO_PATH, { sizes: '180x180' });
+  upsertLink('manifest', MANIFEST_PATH);
 }
