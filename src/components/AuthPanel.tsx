@@ -22,6 +22,7 @@ export function AuthPanel({ isConfigured, isLoading, error, onSignIn, onSignUp, 
   const [status, setStatus] = useState<string | undefined>();
   const [formError, setFormError] = useState<string | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasAcceptedPolicies, setHasAcceptedPolicies] = useState(false);
 
   function getSubmitErrorMessage(submitError: unknown): string {
     const message = submitError instanceof Error ? submitError.message : '认证失败，请稍后重试。';
@@ -51,8 +52,8 @@ export function AuthPanel({ isConfigured, isLoading, error, onSignIn, onSignUp, 
       setFormError('请输入有效邮箱，并使用至少 6 位密码。');
       return;
     }
-    if (mode === 'signup' && (!avatarDataUrl || !nickname.trim() || !cleanUsername)) {
-      setFormError('注册 VD 账号需要先设置头像、昵称和用户名。');
+    if (mode === 'signup' && !hasAcceptedPolicies) {
+      setFormError('请先阅读并同意用户协议与隐私政策');
       return;
     }
     setIsSubmitting(true);
@@ -72,15 +73,10 @@ export function AuthPanel({ isConfigured, isLoading, error, onSignIn, onSignUp, 
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dbeafe,transparent_32%),linear-gradient(180deg,#f8fafc,#eef2f7)] px-4 py-10 text-slate-900">
-      <section className="mx-auto max-w-xl overflow-hidden rounded-[2rem] border border-white/80 bg-white/85 p-7 shadow-2xl shadow-slate-300/60 backdrop-blur">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">Visual Deadline Cloud</p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">进入 VD LifeOS</h1>
-          </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white shadow-lg shadow-slate-300">VD</div>
-        </div>
-        <p className="mt-3 text-sm leading-6 text-slate-500">登录后云同步会在后台运行；注册时先建立头像、昵称和用户名，让 VD 从一开始就拥有清晰的个人身份。</p>
+      <section className="mx-auto max-w-xl rounded-[2rem] border border-white/80 bg-white/85 p-7 shadow-2xl shadow-slate-300/60 backdrop-blur">
+        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">VD 云同步</p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">登录以启用云同步</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-500">使用 Supabase 邮箱密码登录后，任务、目标与压力历史会按你的用户 ID 隔离同步。也可以继续使用本机 localStorage。</p>
 
         {!isConfigured && !error ? (
           <p className="mt-5 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700 ring-1 ring-amber-100">Supabase environment variables are missing.</p>
@@ -124,7 +120,23 @@ export function AuthPanel({ isConfigured, isLoading, error, onSignIn, onSignUp, 
           <label className="block text-sm font-semibold text-slate-600">密码
             <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-100/70" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} />
           </label>
-          <button type="submit" disabled={!isConfigured || isLoading || isSubmitting} className="w-full rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300 transition hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:translate-y-0 disabled:bg-slate-300 disabled:shadow-none">
+          {mode === 'signup' ? (
+            <label className="flex items-start gap-3 rounded-2xl bg-slate-50/85 px-4 py-3 text-sm leading-6 text-slate-600 ring-1 ring-slate-100">
+              <input
+                type="checkbox"
+                checked={hasAcceptedPolicies}
+                onChange={(event) => setHasAcceptedPolicies(event.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-slate-950 accent-slate-950"
+              />
+              <span>
+                我已阅读并同意
+                <a href="/terms" className="font-semibold text-sky-700 hover:text-sky-900">《用户协议》</a>
+                和
+                <a href="/privacy" className="font-semibold text-sky-700 hover:text-sky-900">《隐私政策》</a>
+              </span>
+            </label>
+          ) : null}
+          <button type="submit" disabled={!isConfigured || isLoading || isSubmitting} className="w-full rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300 disabled:cursor-not-allowed disabled:bg-slate-300">
             {isSubmitting ? '处理中…' : mode === 'signin' ? '登录并同步' : '注册账号'}
           </button>
         </form>
