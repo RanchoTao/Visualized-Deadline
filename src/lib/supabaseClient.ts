@@ -36,6 +36,7 @@ interface EmailPasswordCredentials {
 interface SignUpCredentials extends EmailPasswordCredentials {
   options?: {
     emailRedirectTo?: string;
+    data?: Record<string, unknown>;
   };
 }
 
@@ -227,6 +228,55 @@ function normalizeStoredSession(value: unknown): SupabaseSession | null {
   };
 }
 
+function isUsableStoredToken(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= MAX_AUTH_TOKEN_LENGTH;
+}
+
+function isUsableAccessToken(value: unknown): value is string {
+  return isUsableStoredToken(value) && JWT_LIKE_PATTERN.test(value);
+}
+
+function clearLegacySupabaseStorage(): void {
+  if (typeof window === 'undefined') return;
+
+  const storages = [window.localStorage, window.sessionStorage];
+  storages.forEach((storage) => {
+    for (let index = storage.length - 1; index >= 0; index -= 1) {
+      const key = storage.key(index);
+      if (!key) continue;
+      if (key === SESSION_STORAGE_KEY || key === CODE_VERIFIER_STORAGE_KEY || key.startsWith(LEGACY_SUPABASE_AUTH_PREFIX)) {
+        storage.removeItem(key);
+      }
+    }
+  });
+
+  document.cookie.split(';').forEach((cookie) => {
+    const [rawName] = cookie.split('=');
+    const name = rawName?.trim();
+    if (!name || (!name.startsWith(LEGACY_SUPABASE_AUTH_PREFIX) && !name.startsWith('vd.supabase'))) return;
+    document.cookie = `${name}=; Max-Age=0; path=/; SameSite=Lax`;
+  });
+}
+
+function normalizeStoredSession(value: unknown): SupabaseSession | null {
+  if (!value || typeof value !== 'object') return null;
+  const candidate = value as Record<string, unknown>;
+  if (!isUsableAccessToken(candidate.access_token) || !isUsableStoredToken(candidate.refresh_token)) return null;
+
+  const user = candidate.user && typeof candidate.user === 'object' ? candidate.user as Record<string, unknown> : null;
+  if (!user || typeof user.id !== 'string' || !user.id) return null;
+
+  return {
+    access_token: candidate.access_token,
+    refresh_token: candidate.refresh_token,
+    expires_at: typeof candidate.expires_at === 'number' ? candidate.expires_at : undefined,
+    user: {
+      id: user.id,
+      email: typeof user.email === 'string' ? user.email : undefined,
+    },
+  };
+}
+
 function readStoredSession(): SupabaseSession | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -333,7 +383,7 @@ class VisualDeadlineSupabaseClient {
       const payload = await parseResponse<{ access_token?: string; refresh_token?: string; expires_in?: number; user: SupabaseUser }>(await fetch(signUpUrl, {
         method: 'POST',
         headers: { apikey: anonKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, code_challenge: codeChallenge, code_challenge_method: 's256' }),
+        body: JSON.stringify({ email, password, data: options?.data, code_challenge: codeChallenge, code_challenge_method: 's256' }),
       }));
       if (!payload.access_token || !payload.refresh_token) return null;
       const session = toSession(payload as { access_token: string; refresh_token: string; expires_in?: number; user: SupabaseUser });

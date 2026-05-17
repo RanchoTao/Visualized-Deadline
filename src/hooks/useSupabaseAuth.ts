@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase, type SupabaseSession } from '../lib/supabaseClient';
+import type { UserProfile } from '../types/task';
 
 const AUTH_CALLBACK_PATH = '/';
 const AUTH_CALLBACK_QUERY_PARAMS = ['code', 'state', 'error', 'error_code', 'error_description'];
@@ -114,7 +115,7 @@ export function useSupabaseAuth() {
     };
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string) => {
+  const signUp = useCallback(async (email: string, password: string, identity?: Pick<UserProfile, 'avatarDataUrl' | 'nickname' | 'username'>) => {
     setError(undefined);
     try {
       console.info('[VD_AUTH_SIGNUP_START]', { emailDomain: email.split('@')[1], emailRedirectTo });
