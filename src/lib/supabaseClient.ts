@@ -36,6 +36,7 @@ interface EmailPasswordCredentials {
 interface SignUpCredentials extends EmailPasswordCredentials {
   options?: {
     emailRedirectTo?: string;
+    data?: Record<string, unknown>;
   };
 }
 
@@ -216,7 +217,7 @@ class VisualDeadlineSupabaseClient {
       const payload = await parseResponse<{ access_token?: string; refresh_token?: string; expires_in?: number; user: SupabaseUser }>(await fetch(signUpUrl, {
         method: 'POST',
         headers: { apikey: anonKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, code_challenge: codeChallenge, code_challenge_method: 's256' }),
+        body: JSON.stringify({ email, password, data: options?.data, code_challenge: codeChallenge, code_challenge_method: 's256' }),
       }));
       if (!payload.access_token || !payload.refresh_token) return null;
       const session = toSession(payload as { access_token: string; refresh_token: string; expires_in?: number; user: SupabaseUser });
