@@ -109,8 +109,8 @@ export function PressureCard({ pressure, history, onRecalibrate }: PressureCardP
       </div>
 
       {timelineOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/20 px-4 py-6 backdrop-blur-sm">
-          <div className="max-h-[calc(100vh-3rem)] w-full max-w-5xl overflow-y-auto rounded-[2rem] bg-white/95 p-4 shadow-2xl shadow-slate-300/60">
+        <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-slate-950/20 px-4 pb-6 pt-36 backdrop-blur-sm sm:pt-32 md:pt-28 lg:pt-32">
+          <div className="w-full max-w-5xl overflow-y-auto rounded-[2rem] bg-white/95 p-4 shadow-2xl shadow-slate-300/60 max-h-[calc(100dvh-10.5rem)] sm:max-h-[calc(100dvh-9.5rem)] md:max-h-[calc(100dvh-8.5rem)] lg:max-h-[calc(100dvh-9.5rem)]">
             <div className="mb-3 flex items-center justify-between gap-3 px-2"><h2 className="text-xl font-semibold text-slate-950">压力曲线详情</h2><button type="button" onClick={() => setTimelineOpen(false)} className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200">关闭</button></div>
             <PressureTimeline records={history} />
           </div>
