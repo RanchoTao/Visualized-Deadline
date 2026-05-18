@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { EMAIL_VERIFICATION_SENT_MESSAGE, EMAIL_VERIFIED_LOGIN_MESSAGE } from '../constants/authMessages';
+import { EMAIL_VERIFICATION_SENT_MESSAGE, EMAIL_VERIFIED_LOGIN_MESSAGE, getAuthErrorMessage } from '../constants/authMessages';
+import { getLastAuthDebugEntry, recordAuthDebugError, type AuthDebugEntry } from '../lib/authDebug';
 import { supabase, type SupabaseSession } from '../lib/supabaseClient';
 import type { UserProfile } from '../types/task';
 
@@ -93,6 +94,9 @@ async function handleAuthCallback(): Promise<AuthCallbackResult | null> {
     }
 
     return null;
+  } catch (error) {
+    recordAuthDebugError('handleAuthCallback', error);
+    throw error;
   } finally {
     removeAuthCallbackParams();
   }
@@ -103,9 +107,15 @@ export function useSupabaseAuth() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | undefined>();
   const [status, setStatus] = useState<string | undefined>();
+  const [authDebugInfo, setAuthDebugInfo] = useState<AuthDebugEntry | undefined>(() => getLastAuthDebugEntry());
 
   useEffect(() => {
     let isMounted = true;
+
+    const handleAuthDebugError = (event: Event) => {
+      if (isMounted && event instanceof CustomEvent) setAuthDebugInfo(event.detail as AuthDebugEntry);
+    };
+    window.addEventListener('vd:auth-debug-error', handleAuthDebugError);
 
     const sessionPromise = handleAuthCallback().then(async (callbackResult) => {
       if (callbackResult) {
@@ -120,15 +130,23 @@ export function useSupabaseAuth() {
         if (isMounted) setSession(currentSession);
       })
       .catch((authError) => {
-        if (isMounted) setError(authError instanceof Error ? authError.message : '读取登录状态失败。');
+        if (isMounted) setError(getAuthErrorMessage(authError, '读取登录状态失败。'));
       })
       .finally(() => {
         if (isMounted) setIsLoading(false);
       });
 
-    const subscription = supabase.auth.onAuthStateChange((nextSession) => setSession(nextSession));
+    const subscription = supabase.auth.onAuthStateChange((nextSession) => {
+      try {
+        setSession(nextSession);
+      } catch (authStateError) {
+        recordAuthDebugError('onAuthStateChange', authStateError);
+        throw authStateError;
+      }
+    });
     return () => {
       isMounted = false;
+      window.removeEventListener('vd:auth-debug-error', handleAuthDebugError);
       subscription.data.subscription.unsubscribe();
     };
   }, []);
@@ -174,5 +192,5 @@ export function useSupabaseAuth() {
     setSession(null);
   }, []);
 
-  return { session, isLoading, error: error ?? supabase.configError, status, isConfigured: supabase.isConfigured, signUp, signIn, resendVerificationEmail, signOut };
+  return { session, isLoading, error: error ?? supabase.configError, status, authDebugInfo, isConfigured: supabase.isConfigured, signUp, signIn, resendVerificationEmail, signOut };
 }
