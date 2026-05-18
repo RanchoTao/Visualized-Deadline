@@ -2,6 +2,7 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import {
   EMAIL_MAYBE_REGISTERED_MESSAGE,
   EMAIL_NOT_CONFIRMED_MESSAGE,
+  EMAIL_SESSION_MISSING_MESSAGE,
   EMAIL_VERIFICATION_RESENT_MESSAGE,
   EMAIL_VERIFICATION_SENT_MESSAGE,
   getAuthErrorMessage,
@@ -89,7 +90,7 @@ export function AuthPanel({ isConfigured, isLoading, error, status: authStatus, 
       }
     } catch (submitError) {
       const message = getSubmitErrorMessage(submitError);
-      if (message === EMAIL_NOT_CONFIRMED_MESSAGE || message === EMAIL_MAYBE_REGISTERED_MESSAGE) {
+      if (message === EMAIL_NOT_CONFIRMED_MESSAGE || message === EMAIL_SESSION_MISSING_MESSAGE || message === EMAIL_MAYBE_REGISTERED_MESSAGE) {
         setVerificationEmail(cleanEmail);
       }
       setFormError(message);
@@ -113,7 +114,7 @@ export function AuthPanel({ isConfigured, isLoading, error, status: authStatus, 
       setVerificationEmail(cleanEmail);
       setStatus(EMAIL_VERIFICATION_RESENT_MESSAGE);
     } catch (resendError) {
-      setFormError(getAuthErrorMessage(resendError, '重新发送验证邮件失败，请稍后重试。'));
+      setFormError(resendError instanceof Error ? resendError.message : '重新发送验证邮件失败，请稍后重试。');
     } finally {
       setIsSubmitting(false);
     }

@@ -326,12 +326,15 @@ class VisualDeadlineSupabaseClient {
     signInWithPassword: async ({ email, password }: EmailPasswordCredentials): Promise<SupabaseSession> => {
       try {
         const { url, anonKey } = getRequiredConfig();
-        const payload = await parseResponse<{ access_token: string; refresh_token: string; expires_in?: number; user: SupabaseUser }>(await fetch(`${url}/auth/v1/token?grant_type=password`, {
+        const payload = await parseResponse<{ access_token?: string; refresh_token?: string; expires_in?: number; user?: SupabaseUser }>(await fetch(`${url}/auth/v1/token?grant_type=password`, {
           method: 'POST',
           headers: { apikey: anonKey, 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),
         }));
-        const session = toSession(payload);
+        if (!payload.access_token || !payload.refresh_token || !payload.user) {
+          throw new Error('EMAIL_SESSION_MISSING_AFTER_SIGNIN');
+        }
+        const session = toSession(payload as { access_token: string; refresh_token: string; expires_in?: number; user: SupabaseUser });
         persistSession(session);
         this.emit(session);
         return session;
