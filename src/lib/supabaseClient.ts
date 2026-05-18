@@ -120,30 +120,6 @@ function getRequiredConfig(): SupabaseConfig {
 }
 
 
-function base64UrlEncode(bytes: Uint8Array): string {
-  let binary = '';
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
-  return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function createCodeVerifier(): string {
-  const randomBytes = new Uint8Array(32);
-  window.crypto.getRandomValues(randomBytes);
-  return base64UrlEncode(randomBytes);
-}
-
-async function createCodeChallenge(codeVerifier: string): Promise<string> {
-  const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(codeVerifier));
-  return base64UrlEncode(new Uint8Array(digest));
-}
-
-function storeCodeVerifier(codeVerifier: string): void {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(CODE_VERIFIER_STORAGE_KEY, codeVerifier);
-}
-
 function readStoredCodeVerifier(): string | null {
   if (typeof window === 'undefined') return null;
   return window.localStorage.getItem(CODE_VERIFIER_STORAGE_KEY);
@@ -306,14 +282,10 @@ class VisualDeadlineSupabaseClient {
         const signUpUrl = new URL(`${url}/auth/v1/signup`);
         if (options?.emailRedirectTo) signUpUrl.searchParams.set('redirect_to', options.emailRedirectTo);
 
-        const codeVerifier = createCodeVerifier();
-        const codeChallenge = await createCodeChallenge(codeVerifier);
-        storeCodeVerifier(codeVerifier);
-
         const payload = await parseResponse<{ access_token?: string; refresh_token?: string; expires_in?: number; user: SupabaseUser }>(await fetch(signUpUrl, {
           method: 'POST',
           headers: { apikey: anonKey, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, data: options?.data, code_challenge: codeChallenge, code_challenge_method: 's256' }),
+          body: JSON.stringify({ email, password, data: options?.data }),
         }));
         if (!payload.access_token || !payload.refresh_token) {
           if (Array.isArray(payload.user?.identities) && payload.user.identities.length === 0) {

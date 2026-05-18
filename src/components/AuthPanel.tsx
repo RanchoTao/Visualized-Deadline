@@ -162,10 +162,10 @@ export function AuthPanel({ isConfigured, isLoading, error, status: authStatus, 
         {shouldShowVerificationActions ? (
           <div className="mt-6 rounded-[1.75rem] bg-slate-50/80 p-4 ring-1 ring-white/90">
             <p className="text-sm font-semibold text-slate-700">请验证邮箱</p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">验证邮件已发送至 {verificationEmail}。如果没有收到，可以重新发送验证邮件。</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">验证邮件已发送至 {verificationEmail}。验证完成后请返回登录。</p>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              <button type="button" onClick={handleGoToSignIn} className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300">我已验证，去登录</button>
               <button type="button" onClick={handleResendVerification} disabled={!isConfigured || isLoading || isSubmitting} className="rounded-full bg-white/85 px-5 py-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300">重新发送验证邮件</button>
+              <button type="button" onClick={handleGoToSignIn} className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300">返回登录</button>
             </div>
           </div>
         ) : (
