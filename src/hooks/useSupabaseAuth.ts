@@ -169,7 +169,6 @@ export function useSupabaseAuth() {
       options: {
         emailRedirectTo: EMAIL_CONFIRMATION_REDIRECT_URL,
         data: identity ? {
-          avatarDataUrl: identity.avatarDataUrl,
           nickname: identity.nickname,
           username: identity.username,
         } : undefined,
